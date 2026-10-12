@@ -1,5 +1,6 @@
 [importlinter]
 root_package = app
+include_external_packages = True
 
 [importlinter:contract:layers]
 name = Layered architecture: api -> modules -> platform -> core

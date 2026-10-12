@@ -18,6 +18,7 @@ ENABLED = [
     "activity",
     "automations",
     "migration",
+    "system",
 ]
 
 # Optional sub-modules a feature module may provide.

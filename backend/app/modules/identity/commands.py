@@ -33,6 +33,7 @@ def _normalise_email(email: str) -> str:
 # --- authentication -------------------------------------------------------
 class Login(Command):
     command_name = "identity.login"
+    exposed = False
     scoped = False
     secret_fields = frozenset({"password"})
     log_result = False
@@ -93,6 +94,7 @@ def login(ctx: CommandContext, cmd: Login) -> dict[str, Any]:
 
 class Logout(Command):
     command_name = "identity.logout"
+    exposed = False
     scoped = False
     secret_fields = frozenset({"token"})
 
@@ -271,6 +273,7 @@ def set_user_password(ctx: CommandContext, cmd: SetUserPassword) -> None:
 
 class PurgeExpiredSessions(Command):
     command_name = "identity.purge_expired_sessions"
+    exposed = False
     scoped = False
 
 

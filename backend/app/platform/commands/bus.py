@@ -75,6 +75,9 @@ class Command(BaseModel):
     secret_fields: ClassVar[frozenset[str]] = frozenset()
     # False for commands whose result is itself a secret (login tokens).
     log_result: ClassVar[bool] = True
+    # False for internal commands (worker, migration engine): not published
+    # as HTTP endpoints.
+    exposed: ClassVar[bool] = True
 
     def loggable_payload(self) -> dict[str, Any]:
         data = self.model_dump(mode="json")

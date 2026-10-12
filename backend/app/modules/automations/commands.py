@@ -214,6 +214,7 @@ class RecordRunFailure(Command):
     """Failures are recorded in their own transaction (the failed one rolled back)."""
 
     command_name = "automations.record_failure"
+    exposed = False
     scoped = False
 
     rule_id: uuid.UUID

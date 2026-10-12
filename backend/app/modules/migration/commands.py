@@ -56,6 +56,7 @@ def _mctx(ctx: CommandContext, run: MigrationRun) -> MappingContext:
 # --- 1. stage ---------------------------------------------------------------------------
 class CreateRun(Command):
     command_name = "migration.create_run"
+    exposed = False
     permission = P_MIGRATION_RUN
 
     workspace_id: uuid.UUID
@@ -350,6 +351,7 @@ def _unique_key(base: str, existing: set[str]) -> str:
 # --- 5. import --------------------------------------------------------------------------------
 class ImportRow(Command):
     command_name = "migration.import_row"
+    exposed = False
     permission = P_MIGRATION_RUN
 
     run_id: uuid.UUID
@@ -539,6 +541,7 @@ class FinishRun(Command):
     """Compute the reconciliation report after all rows were attempted."""
 
     command_name = "migration.finish"
+    exposed = False
     permission = P_MIGRATION_RUN
 
     run_id: uuid.UUID
@@ -607,6 +610,7 @@ def start_commit(ctx: CommandContext, cmd: StartCommit) -> None:
 
 class MarkRowError(Command):
     command_name = "migration.mark_row_error"
+    exposed = False
     permission = P_MIGRATION_RUN
 
     run_id: uuid.UUID

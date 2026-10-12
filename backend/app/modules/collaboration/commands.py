@@ -152,6 +152,7 @@ class DeliverNotifications(Command):
     """Executed by the notifications subscriber in the worker."""
 
     command_name = "notifications.deliver"
+    exposed = False
     scoped = False
 
     event_id: int
