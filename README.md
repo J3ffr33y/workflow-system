@@ -7,6 +7,7 @@
 - 从老系统迁移：[docs/MIGRATION.md](docs/MIGRATION.md)
 - 与老系统的功能对照和后续计划：[docs/ROADMAP.md](docs/ROADMAP.md)
 - 功能测试表（手工验收，对照老系统要求）：[docs/testing/](docs/testing/)
+- 在自己的 Windows 电脑上用 Docker Desktop 运行（启动、停止、更新、常见错误）：[docs/LOCAL-WINDOWS.md](docs/LOCAL-WINDOWS.md)
 - 部署与运维：[docs/OPERATIONS.md](docs/OPERATIONS.md)
 - 架构决策记录：[docs/adr/](docs/adr/)
 - 工程约定（Claude Code 每次会话自动读取）：[CLAUDE.md](CLAUDE.md)
@@ -52,6 +53,8 @@ docker compose -f deploy/docker-compose.yml exec api python -m app.cli bootstrap
 ```
 
 打开 `http://<服务器>:8080`。部署后检查 `/api/health` 返回的 `git_sha` 和 `db_revision` 是否是这次部署的版本，详见 [OPERATIONS](docs/OPERATIONS.md)。
+
+Windows + Docker Desktop 本机运行：看 [LOCAL-WINDOWS](docs/LOCAL-WINDOWS.md)。
 
 ## 目录
 
