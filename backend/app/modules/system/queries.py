@@ -72,7 +72,9 @@ def _table(cls: type, table: Table) -> dict[str, Any]:
             composite_unique.append(names)
         elif ix.unique and len(names) == 1:
             single_unique.add(names[0])
-    columns = [_column(col, single_unique) for col in table.columns]
+    # Mixins put ``id`` after the model's own columns; readers expect the key first.
+    ordered = sorted(table.columns, key=lambda col: not col.primary_key)
+    columns = [_column(col, single_unique) for col in ordered]
     column_names = {c["name"] for c in columns}
     return {
         "name": table.name,
