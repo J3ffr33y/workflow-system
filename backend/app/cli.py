@@ -44,15 +44,12 @@ def bootstrap() -> None:
 
 
 DEMO_TEAM = [
-    ("cathy@demo.local", "Cathy Lau", ["CL", "Cathy"], {"accounting": "admin", "grants": "manager"}),
-    ("jean@demo.local", "Jean Ren", [], {"accounting": "manager"}),
-    ("jenny@demo.local", "Jenny Li", [], {"accounting": "manager"}),
-    ("violet@demo.local", "Violet Ma", [], {"accounting": "member"}),
-    ("joe@demo.local", "Joe Liu", [], {"accounting": "member"}),
-    ("eva@demo.local", "Eva Ren", [], {"accounting": "member"}),
-    ("win@demo.local", "Win Yang", ["Win"], {"grants": "member"}),
-    ("fish@demo.local", "Fish Zhou", ["Fish"], {"grants": "member"}),
-    ("grace@demo.local", "Grace Gao", [], {"grants": "member"}),
+    ("alex@demo.local", "Alex Morgan", ["AM"], {"accounting": "admin", "grants": "manager"}),
+    ("sam@demo.local", "Sam Taylor", [], {"accounting": "manager"}),
+    ("jordan@demo.local", "Jordan Lee", [], {"accounting": "member"}),
+    ("casey@demo.local", "Casey Nguyen", [], {"accounting": "member"}),
+    ("riley@demo.local", "Riley Chen", ["Riley"], {"grants": "member"}),
+    ("drew@demo.local", "Drew Patel", ["Drew"], {"grants": "member"}),
 ]
 
 

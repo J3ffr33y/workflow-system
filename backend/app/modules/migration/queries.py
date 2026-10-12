@@ -54,6 +54,9 @@ def run_detail(s: Session, actor: Actor, run_id: uuid.UUID) -> dict[str, Any]:
         out["targets"] = [t.to_dict() for t in mctx.targets.values()]
         raws = [row.raw for row in s.scalars(select(MigrationRow).where(MigrationRow.run_id == r.id))]
         out["distinct"] = {}
+        out["samples"] = {
+            h: list(distinct_values(raws, h, multi=False))[:3] for h in (r.source_meta.get("headers") or [])
+        }
         for header, tkey in (r.mapping.get("columns") or {}).items():
             tg = mctx.targets.get(tkey)
             if tg is not None and tg.value_mapped:
