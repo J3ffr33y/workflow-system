@@ -6,3 +6,4 @@
 *.ico binary
 # Import fixtures must keep their exact bytes (GBK encoding, CRLF from Excel).
 backend/tests/fixtures/** binary
+*.xlsx binary
