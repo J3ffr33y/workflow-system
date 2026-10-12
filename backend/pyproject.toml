@@ -1,0 +1,32 @@
+[project]
+name = "workflow-backend"
+version = "0.1.0"
+description = "Workflow System API: workspaces, boards, clients, automations, migration"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "sqlalchemy>=2.0.36",
+  "psycopg[binary]>=3.2",
+  "alembic>=1.14",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  "argon2-cffi>=23.1",
+  "python-multipart>=0.0.12",
+  "charset-normalizer>=3.4",
+  "python-dateutil>=2.9",
+  "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "ruff>=0.8",
+  "mypy>=1.13",
+  "import-linter>=2.1",
+  "types-python-dateutil>=2.9",
+]
+
+[tool.uv]
+package = false

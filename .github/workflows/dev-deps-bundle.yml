@@ -1,0 +1,59 @@
+# Resolves dependencies and publishes lockfiles plus an offline install bundle
+# to the orphan branch `ci/dev-deps`.
+#
+# Why: some development sandboxes (e.g. cloud agent environments) can reach
+# GitHub but not PyPI / npm. This workflow lets those environments install the
+# exact locked dependencies with `scripts/install-offline.sh`. Normal machines
+# never need it - they install straight from the registries.
+name: dev-deps bundle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Lock and download Python wheels
+        working-directory: backend
+        run: |
+          uv lock
+          uv export --frozen --all-groups --no-hashes --no-emit-project > /tmp/requirements.txt
+          python -m pip download -r /tmp/requirements.txt -d /tmp/out/wheelhouse --only-binary=:all:
+          cp uv.lock /tmp/out/uv.lock
+          cp /tmp/requirements.txt /tmp/out/requirements.txt
+
+      - name: Install frontend and pack node_modules
+        working-directory: frontend
+        run: |
+          pnpm install --no-frozen-lockfile
+          cp pnpm-lock.yaml /tmp/out/pnpm-lock.yaml
+          tar -czf /tmp/node_modules.tgz node_modules
+          split -b 90m /tmp/node_modules.tgz /tmp/out/node_modules.tgz.part-
+
+      - name: Publish to ci/dev-deps
+        run: |
+          cd /tmp/out
+          git init -q -b ci/dev-deps
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "source: ${GITHUB_SHA}" > SOURCE
+          git add -A
+          git commit -q -m "chore: dev dependency bundle for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci/dev-deps
