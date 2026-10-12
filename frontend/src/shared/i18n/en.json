@@ -1,6 +1,6 @@
 {
   "nav": {
-    "home": "Home",
+    "home": "My work",
     "boards": "Boards",
     "archived": "Archived",
     "automations": "Automations",
@@ -26,5 +26,38 @@
     "create": "Create",
     "edit": "Edit",
     "close": "Close"
+  },
+  "myWork": {
+    "title": "My work",
+    "subtitle": "Your tasks, mentions and the items you are on, across both product lines.",
+    "tasks": {
+      "title": "Assigned to me",
+      "overdue": "Overdue",
+      "this_week": "This week",
+      "later": "Later",
+      "no_date": "No date",
+      "all": "All",
+      "empty": "No open tasks are assigned to you. Tasks appear here when someone adds you to one."
+    },
+    "mentions": {
+      "title": "Mentions and alerts",
+      "markAll": "Mark all read",
+      "empty": "You're all caught up."
+    },
+    "emails": {
+      "title": "Emails waiting for me",
+      "soon": "Coming soon",
+      "body": "Once the email module is connected, emails from clients that need your reply will be listed here."
+    },
+    "items": {
+      "title": "Items I'm on",
+      "empty": "You are not on the team of any item yet. Items appear here once someone adds you to one.",
+      "count": "{{count}} items"
+    },
+    "due": {
+      "title": "Due in the next 30 days",
+      "empty": "Nothing due for you in the next 30 days.",
+      "overdue": "overdue"
+    }
   }
 }

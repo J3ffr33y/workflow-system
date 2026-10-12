@@ -23,7 +23,10 @@ export function useRealtime(enabled: boolean) {
         qc.invalidateQueries({ queryKey: ["item"] });
         qc.invalidateQueries({ queryKey: ["home"] });
       }
-      if (all || types.has("task") || types.has("task_member")) qc.invalidateQueries({ queryKey: ["tasks"] });
+      if (all || types.has("task") || types.has("task_member")) {
+        qc.invalidateQueries({ queryKey: ["tasks"] });
+        qc.invalidateQueries({ queryKey: ["home"] });
+      }
       if (all || types.has("comment")) qc.invalidateQueries({ queryKey: ["comments"] });
       if (all || types.has("client") || types.has("client_entity") || types.has("contact"))
         qc.invalidateQueries({ queryKey: ["clients"] });
