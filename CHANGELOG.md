@@ -4,6 +4,11 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
 
 ## [Unreleased]
 
+### Added
+- Data structure page (Settings → "About this system"): every table, column and
+  relation read from the live schema, plus each product line's custom fields and where
+  their values are stored. Structure only, no records.
+
 ## [0.1.0] - 2026-10-12
 
 ### Added

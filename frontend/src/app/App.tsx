@@ -12,6 +12,7 @@ import { LoginPage } from "../features/auth/LoginPage";
 import { AutomationRunsPage } from "../features/automations/AutomationRunsPage";
 import { AutomationsPage } from "../features/automations/AutomationsPage";
 import { BoardPage } from "../features/boards/BoardPage";
+import { DataModelPage } from "../features/datamodel/DataModelPage";
 import { ClientPage } from "../features/clients/ClientPage";
 import { ClientsPage } from "../features/clients/ClientsPage";
 import { HomePage } from "../features/home/HomePage";
@@ -59,6 +60,7 @@ export function App() {
                   <Route path="/users" element={<UsersPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/system" element={<SystemPage />} />
+                  <Route path="/about/data-model" element={<DataModelPage />} />
                   <Route path="*" element={<Navigate to="/home" replace />} />
                 </Route>
               </Routes>

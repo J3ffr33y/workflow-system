@@ -206,3 +206,45 @@ export interface AuditEntry {
   reverted: boolean;
   created_at: string;
 }
+
+export interface DataModelColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primary_key: boolean;
+  unique: boolean;
+  indexed: boolean;
+  has_default: boolean;
+  references: { table: string; column: string; on_delete: string | null } | null;
+}
+
+export interface DataModelTable {
+  name: string;
+  module: string;
+  model: string;
+  description: string | null;
+  entity_type: string | null;
+  audited: boolean;
+  soft_delete: boolean;
+  has_custom_data: boolean;
+  columns: DataModelColumn[];
+  unique_together: string[][];
+  indexes: { name: string; columns: string[] }[];
+}
+
+export interface DataModelField {
+  entity_kind: string;
+  table: string | null;
+  key: string;
+  label: string;
+  type: string;
+  is_archived: boolean;
+  mirror_of: { of: string | null; field: string | null } | null;
+  stored_in: string | null;
+}
+
+export interface DataModel {
+  tables: DataModelTable[];
+  custom_fields: { workspace: { id: string; key: string; name: string }; fields: DataModelField[] }[];
+  field_types: Record<string, string>;
+}

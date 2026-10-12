@@ -2,6 +2,8 @@
 
 表结构以 `backend/app/modules/*/models.py` 为准；本文解释每张表为什么存在、和老系统的对应关系。
 
+系统内也能看：设置页底部的“关于本系统：数据是怎么存的”打开 `/about/data-model`，表、列、关联和各产品线的自定义字段都从实时的表结构生成（`GET /api/meta/data-model`），只展示结构，不展示数据。表的中文说明在 `frontend/src/shared/i18n/*.json` 的 `dataModel.tables`，新增表时一起补上。
+
 ## 配置（业务的形状）
 
 | 表 | 作用 | 老系统对应 |

@@ -41,6 +41,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/meta/data-model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Data Model
+         * @description How data is stored: tables, columns, relations and configured fields.
+         *
+         *     Open to every signed-in user on purpose: it shows structure only, never
+         *     rows, so people curious about the system can learn it without admin rights.
+         */
+        get: operations["data_model_api_meta_data_model_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/realtime": {
         parameters: {
             query?: never;
@@ -3133,6 +3156,28 @@ export interface operations {
         };
     };
     ready_api_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    data_model_api_meta_data_model_get: {
         parameters: {
             query?: never;
             header?: never;

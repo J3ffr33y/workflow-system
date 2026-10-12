@@ -1,4 +1,5 @@
 import {
+  Anchor,
   Button,
   Group,
   Paper,
@@ -11,13 +12,14 @@ import {
 } from "@mantine/core";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { useCommand, useMe } from "../../shared/api/hooks";
 import { Page } from "../../shared/ui/Page";
 import { LookupsPanel } from "./LookupsPanel";
 
 export function SettingsPage() {
   const me = useMe();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [name, setName] = useState(me.data?.user.full_name ?? "");
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -88,6 +90,10 @@ export function SettingsPage() {
           </Stack>
         </Paper>
         {me.data?.workspaces.some((w) => w.permissions.includes("schema.manage")) && <LookupsPanel />}
+        {/* Kept low-key on purpose: useful to the curious, noise for everyone else. */}
+        <Anchor component={Link} to="/about/data-model" size="xs" c="dimmed">
+          {t("dataModel.link")}
+        </Anchor>
       </Stack>
     </Page>
   );
