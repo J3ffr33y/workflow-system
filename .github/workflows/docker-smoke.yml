@@ -1,0 +1,59 @@
+# Builds the production images and runs the documented deployment steps
+# end to end (compose up -> bootstrap -> login through nginx). Unit CI runs
+# without Docker, so this is the only check that the shipped images work.
+name: Docker smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write deploy/.env (local-dev style, as in README)
+        run: |
+          cat > deploy/.env <<'ENV'
+          POSTGRES_PASSWORD=smoke-db-pass
+          FLOW_ENV=dev
+          FLOW_COOKIE_SECURE=false
+          FLOW_BUSINESS_TIMEZONE=Australia/Sydney
+          FLOW_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+          FLOW_BOOTSTRAP_ADMIN_PASSWORD=SmokeTest2026a
+          FLOW_LOG_JSON=false
+          WEB_PORT=8080
+          ENV
+
+      - name: Build and start
+        run: docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build --wait --wait-timeout 240
+
+      - name: Bootstrap
+        run: docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec -T api python -m app.cli bootstrap
+
+      - name: Health and login through nginx
+        run: |
+          set -eux
+          curl -fsS http://localhost:8080/api/health
+          code=$(curl -s -o /tmp/login.json -w '%{http_code}' -c /tmp/jar \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"admin@example.com","password":"SmokeTest2026a"}' \
+            http://localhost:8080/api/auth/login)
+          cat /tmp/login.json; echo
+          test "$code" = 200
+          curl -fsS -b /tmp/jar http://localhost:8080/api/auth/me | head -c 400; echo
+          curl -fsS http://localhost:8080/ | grep -qi '<div id="root"'
+
+      - name: Restart api, web must still reach it
+        run: |
+          set -eux
+          docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --force-recreate --wait api
+          curl -fsS http://localhost:8080/api/health
+
+      - name: Logs
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs --no-color --tail 200
