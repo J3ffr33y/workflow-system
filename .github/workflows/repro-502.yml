@@ -1,0 +1,38 @@
+name: Repro 502
+on:
+  push:
+    branches: [repro/login-502]
+jobs:
+  repro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: First start with the prod/cookie-false .env (api crashes)
+        run: |
+          cat > deploy/.env <<'ENV'
+          POSTGRES_PASSWORD=smoke-db-pass
+          FLOW_ENV=prod
+          FLOW_COOKIE_SECURE=false
+          FLOW_BUSINESS_TIMEZONE=Australia/Sydney
+          FLOW_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+          FLOW_BOOTSTRAP_ADMIN_PASSWORD=SmokeTest2026a
+          FLOW_LOG_JSON=true
+          WEB_PORT=8080
+          ENV
+          docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+          sleep 30
+          docker compose -f deploy/docker-compose.yml ps -a
+          curl -s -o /dev/null -w 'login status before fix: %{http_code}\n' -H 'Content-Type: application/json' -d '{}' http://localhost:8080/api/auth/login || true
+      - name: Switch to dev and up -d (what the user did)
+        run: |
+          sed -i 's/^FLOW_ENV=prod/FLOW_ENV=dev/' deploy/.env
+          docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+          sleep 30
+          docker compose -f deploy/docker-compose.yml ps -a
+          docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec -T api python -m app.cli bootstrap || true
+          for i in 1 2 3; do curl -s -o /tmp/l.json -w 'login status after switch: %{http_code}\n' -H 'Content-Type: application/json' -d '{"email":"admin@example.com","password":"SmokeTest2026a"}' http://localhost:8080/api/auth/login; head -c 300 /tmp/l.json; echo; sleep 5; done
+          docker inspect -f '{{.Name}} {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}} restarts={{.RestartCount}}' $(docker compose -f deploy/docker-compose.yml ps -aq)
+      - name: Logs
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml logs --no-color --tail 80
