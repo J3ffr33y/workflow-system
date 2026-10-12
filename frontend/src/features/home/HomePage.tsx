@@ -1,11 +1,15 @@
 import { Anchor, Badge, Group, Paper, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { api } from "../../shared/api/client";
 import { useMe } from "../../shared/api/hooks";
 import { fmtDate } from "../../shared/fields/format";
 import { Page } from "../../shared/ui/Page";
 import classes from "./home.module.css";
+import { MyEmails } from "./MyEmails";
+import { MyMentions } from "./MyMentions";
+import { MyTasks } from "./MyTasks";
 
 interface Home {
   workspaces: {
@@ -27,17 +31,25 @@ interface Home {
 }
 
 export function HomePage() {
+  const { t } = useTranslation();
   const me = useMe();
   const q = useQuery({ queryKey: ["home"], queryFn: () => api.get<Home>("/home") });
   const first = me.data?.user.full_name.split(" ")[0];
   const wsKey = (id: string) => me.data?.workspaces.find((w) => w.id === id)?.key ?? "";
 
   return (
-    <Page
-      title={`Good to see you, ${first ?? ""}`}
-      subtitle="Work where you are on the team, across both product lines."
-    >
+    <Page title={t("myWork.title")} subtitle={`${first ? `${first} · ` : ""}${t("myWork.subtitle")}`}>
       <Stack gap="xl" maw={1100}>
+        <MyTasks />
+
+        <SimpleGrid cols={{ base: 1, md: 2 }}>
+          <MyMentions />
+          <MyEmails />
+        </SimpleGrid>
+
+        <Title order={2} size="h4" mb={-8}>
+          {t("myWork.items.title")}
+        </Title>
         <SimpleGrid cols={{ base: 1, md: 2 }}>
           {(q.data?.workspaces ?? []).map((w) => (
             <Paper key={w.workspace_id} withBorder p="lg" radius="md">
@@ -46,7 +58,7 @@ export function HomePage() {
                   {w.workspace_name}
                 </Title>
                 <Text size="sm" c="dimmed">
-                  {w.total} items
+                  {t("myWork.items.count", { count: w.total })}
                 </Text>
               </Group>
               {/* A single stacked bar: the shape of your workload at a glance. */}
@@ -82,20 +94,18 @@ export function HomePage() {
           ))}
           {q.data && !q.data.workspaces.length && (
             <Paper withBorder p="lg">
-              <Text c="dimmed">
-                You are not on the team of any item yet. Items appear here once someone adds you to one.
-              </Text>
+              <Text c="dimmed">{t("myWork.items.empty")}</Text>
             </Paper>
           )}
         </SimpleGrid>
 
         <section>
           <Title order={2} size="h4" mb="sm">
-            Due in the next 30 days
+            {t("myWork.due.title")}
           </Title>
           {q.data && !q.data.due_soon.length ? (
             <Text c="dimmed" size="sm">
-              Nothing due for you in the next 30 days.
+              {t("myWork.due.empty")}
             </Text>
           ) : (
             <Table withTableBorder style={{ background: "var(--surface)" }}>
@@ -124,7 +134,7 @@ export function HomePage() {
                     <Table.Td w={90}>
                       {d.overdue && (
                         <Badge color="red" variant="light">
-                          overdue
+                          {t("myWork.due.overdue")}
                         </Badge>
                       )}
                     </Table.Td>

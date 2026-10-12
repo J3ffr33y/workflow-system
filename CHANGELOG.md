@@ -5,6 +5,9 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
 ## [Unreleased]
 
 ### Added
+- "My work" home page: tasks assigned to me grouped by overdue / this week / later /
+  no date, unread @mentions and alerts, and a reserved slot for emails waiting for me
+  (filled in when the email module lands). New endpoint `GET /api/home/tasks`.
 - Data structure page (Settings → "About this system"): every table, column and
   relation read from the live schema, plus each product line's custom fields and where
   their values are stored. Structure only, no records.

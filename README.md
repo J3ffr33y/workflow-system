@@ -6,6 +6,7 @@
 - 数据模型：[docs/DATA-MODEL.md](docs/DATA-MODEL.md)
 - 从老系统迁移：[docs/MIGRATION.md](docs/MIGRATION.md)
 - 与老系统的功能对照和后续计划：[docs/ROADMAP.md](docs/ROADMAP.md)
+- 功能测试表（手工验收，对照老系统要求）：[docs/testing/](docs/testing/)
 - 部署与运维：[docs/OPERATIONS.md](docs/OPERATIONS.md)
 - 架构决策记录：[docs/adr/](docs/adr/)
 - 工程约定（Claude Code 每次会话自动读取）：[CLAUDE.md](CLAUDE.md)

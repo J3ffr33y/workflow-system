@@ -103,6 +103,11 @@ def home(actor: CurrentActor, s: ReadDB) -> dict[str, Any]:
     return items_q.home(s, actor)
 
 
+@router.get("/home/tasks")
+def home_tasks(actor: CurrentActor, s: ReadDB) -> list[dict[str, Any]]:
+    return tasks_q.my_tasks(s, actor)
+
+
 # --- clients ---------------------------------------------------------------------------
 @router.get("/clients")
 def clients(
