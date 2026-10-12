@@ -4,6 +4,8 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-12
+
 ### Added
 - First complete demo covering the current Smart Board for Accounting and Grants:
   boards with inline editing, saved views, filters, bulk edit, roll over, archive and
