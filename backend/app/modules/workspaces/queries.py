@@ -158,3 +158,50 @@ def workspace_schema(s: Session, actor: Actor, workspace_id: uuid.UUID) -> dict[
         "fiscal_years": fiscal_years(s),
         "lookups": lookups(s),
     }
+
+
+# Where the values of each kind of custom field live. Values are keyed by the
+# field's immutable ``key`` inside that table's ``data`` JSONB column.
+FIELD_TABLES = {
+    "item": "items",
+    "task": "tasks",
+    "client": "clients",
+    "entity": "client_entities",
+    "contact": "contacts",
+}
+
+
+def field_catalog(s: Session, actor: Actor) -> list[dict[str, Any]]:
+    """Custom field definitions per workspace the actor can read (definitions only, no values)."""
+    out: list[dict[str, Any]] = []
+    for ws in visible_workspaces(s, actor):
+        if not actor.can(P_ITEMS_READ, ws.id):
+            continue
+        fields = s.scalars(
+            select(FieldDefinition)
+            .where(FieldDefinition.workspace_id == ws.id)
+            .order_by(FieldDefinition.entity_kind, FieldDefinition.position, FieldDefinition.key)
+        )
+        out.append(
+            {
+                "workspace": {"id": str(ws.id), "key": ws.key, "name": ws.name},
+                "fields": [
+                    {
+                        "entity_kind": f.entity_kind,
+                        "table": FIELD_TABLES.get(f.entity_kind),
+                        "key": f.key,
+                        "label": f.label,
+                        "type": f.type,
+                        "is_archived": f.is_archived,
+                        # Mirror fields store nothing; they point at a fact kept once elsewhere.
+                        "mirror_of": (
+                            {"of": f.config.get("of"), "field": f.config.get("field")}
+                            if f.type == "mirror"
+                            else None
+                        ),
+                    }
+                    for f in fields
+                ],
+            }
+        )
+    return out

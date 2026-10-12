@@ -9,7 +9,10 @@ from app.api.realtime import broadcaster
 from app.core.config import get_settings
 from app.core.errors import PermissionDenied
 from app.core.time import utcnow
+from app.modules.system import queries as system_q
+from app.modules.workspaces import queries as ws_q
 from app.platform.events.models import Event, EventDelivery
+from app.platform.fields.types import field_types
 from app.platform.jobs.models import JobRun
 from app.platform.permissions import P_SYSTEM_ADMIN
 
@@ -37,6 +40,23 @@ def ready(s: ReadDB) -> dict[str, Any]:
         select(func.count()).select_from(EventDelivery).where(EventDelivery.status.in_(("pending", "failed")))
     )
     return {"database": True, "worker": worker_ok, "event_backlog": backlog}
+
+
+@router.get("/meta/data-model")
+def data_model(actor: CurrentActor, s: ReadDB) -> dict[str, Any]:
+    """How data is stored: tables, columns, relations and configured fields.
+
+    Open to every signed-in user on purpose: it shows structure only, never
+    rows, so people curious about the system can learn it without admin rights.
+    """
+    tables = system_q.data_model()
+    with_data = {t["name"] for t in tables if t["has_custom_data"]}
+    catalog = ws_q.field_catalog(s, actor)
+    for ws in catalog:
+        for f in ws["fields"]:
+            f["stored_in"] = None if f["mirror_of"] or f["table"] not in with_data else f"{f['table']}.data"
+    types = {t.key: t.label for t in field_types.all()}
+    return {"tables": tables, "custom_fields": catalog, "field_types": types}
 
 
 @router.get("/realtime")
