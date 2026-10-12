@@ -1,0 +1,30 @@
+{
+  "nav": {
+    "home": "首页",
+    "boards": "看板",
+    "archived": "已归档",
+    "automations": "自动化",
+    "automationLogs": "自动化日志",
+    "migration": "数据迁移",
+    "clients": "客户",
+    "activity": "活动记录",
+    "users": "用户",
+    "settings": "设置",
+    "workspaceSettings": "工作区配置",
+    "logout": "退出",
+    "newBoard": "新建看板",
+    "system": "系统状态"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "archive": "归档",
+    "restore": "恢复",
+    "search": "搜索",
+    "loading": "加载中…",
+    "create": "新建",
+    "edit": "编辑",
+    "close": "关闭"
+  }
+}

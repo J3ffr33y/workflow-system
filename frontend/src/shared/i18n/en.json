@@ -1,0 +1,30 @@
+{
+  "nav": {
+    "home": "Home",
+    "boards": "Boards",
+    "archived": "Archived",
+    "automations": "Automations",
+    "automationLogs": "Automation logs",
+    "migration": "Data migration",
+    "clients": "Clients",
+    "activity": "Activity",
+    "users": "Users",
+    "settings": "Settings",
+    "workspaceSettings": "Workspace setup",
+    "logout": "Log out",
+    "newBoard": "New board",
+    "system": "System health"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "archive": "Archive",
+    "restore": "Restore",
+    "search": "Search",
+    "loading": "Loading…",
+    "create": "Create",
+    "edit": "Edit",
+    "close": "Close"
+  }
+}
