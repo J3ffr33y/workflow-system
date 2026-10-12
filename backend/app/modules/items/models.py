@@ -52,6 +52,8 @@ class Item(IdMixin, TimestampMixin, SoftDeleteMixin, Audited, Base):
             "ix_items_board_active", "board_id", "is_archived", postgresql_where=text("deleted_at IS NULL")
         ),
         Index("ix_items_data_gin", "data", postgresql_using="gin"),
+        # Fuzzy name search (needs the pg_trgm extension, created in migration 0001).
+        Index("ix_items_name_trgm", "name", postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
     )
 
     def set_data(self, key: str, value: Any) -> None:

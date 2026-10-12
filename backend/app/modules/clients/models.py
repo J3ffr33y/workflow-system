@@ -8,7 +8,7 @@ every item, which is what made the old system drift.
 import uuid
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, IdMixin, SoftDeleteMixin, TimestampMixin
@@ -29,6 +29,12 @@ class Client(IdMixin, TimestampMixin, SoftDeleteMixin, Audited, Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     # Values of client-level custom fields (field_definitions.entity_kind='client')
     data: Mapped[dict[str, Any]] = mapped_column(default=dict)
+
+    __table_args__ = (
+        Index(
+            "ix_clients_name_trgm", "name", postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}
+        ),
+    )
 
 
 class ClientEntity(IdMixin, TimestampMixin, SoftDeleteMixin, Audited, Base):
