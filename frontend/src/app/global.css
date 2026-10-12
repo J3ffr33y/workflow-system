@@ -1,0 +1,86 @@
+:root {
+  --ink: #1d2433;
+  --ink-soft: #5b6475;
+  --paper: #f5f6f8;
+  --surface: #ffffff;
+  --line: #e2e5eb;
+  --accent: #2f7d6d;
+  --signal: #c98a12;
+  --sidebar: #1f2a2e;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-feature-settings: "tnum" 1;
+}
+
+/* AG Grid theme tuning: quiet grid, the status column does the talking. */
+.ag-theme-quartz {
+  --ag-font-family: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --ag-font-size: 13.5px;
+  --ag-foreground-color: var(--ink);
+  --ag-header-foreground-color: var(--ink-soft);
+  --ag-header-background-color: #fafbfc;
+  --ag-border-color: var(--line);
+  --ag-row-border-color: #eef0f3;
+  --ag-row-hover-color: #f3f8f6;
+  --ag-selected-row-background-color: #e3f1ed;
+  --ag-range-selection-border-color: var(--accent);
+  --ag-active-color: var(--accent);
+  --ag-checkbox-checked-color: var(--accent);
+  --ag-header-column-resize-handle-color: var(--line);
+  --ag-wrapper-border-radius: 6px;
+  --ag-cell-horizontal-padding: 10px;
+}
+
+.ag-theme-quartz .ag-header-cell-text {
+  font-weight: 500;
+}
+
+.ag-theme-quartz .cell-flush {
+  padding: 0 !important;
+}
+
+.ag-theme-quartz .ag-cell {
+  display: flex;
+  align-items: center;
+}
+
+.ag-theme-quartz .ag-cell-wrapper {
+  width: 100%;
+}
+
+/* Rows flagged by automations (deadline highlight). */
+.row-hl-red {
+  --row-hl: var(--mantine-color-red-1);
+}
+.row-hl-orange {
+  --row-hl: var(--mantine-color-orange-1);
+}
+.row-hl-yellow {
+  --row-hl: var(--mantine-color-yellow-1);
+}
+.row-hl-green {
+  --row-hl: var(--mantine-color-green-1);
+}
+.row-hl-blue {
+  --row-hl: var(--mantine-color-blue-1);
+}
+.ag-row[class*="row-hl-"] {
+  background: var(--row-hl);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

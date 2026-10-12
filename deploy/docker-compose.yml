@@ -1,0 +1,61 @@
+# Single-host deployment: postgres + api + worker + web.
+#   cp deploy/.env.example deploy/.env   # then edit secrets
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+#   docker compose -f deploy/docker-compose.yml exec api python -m app.cli bootstrap
+name: workflow
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: flow
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flow"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ../backend
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      FLOW_DATABASE_URL: postgresql+psycopg://flow:${POSTGRES_PASSWORD}@db:5432/flow
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+
+  worker:
+    build:
+      context: ../backend
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    env_file: .env
+    environment:
+      FLOW_DATABASE_URL: postgresql+psycopg://flow:${POSTGRES_PASSWORD}@db:5432/flow
+    depends_on:
+      api:
+        condition: service_started
+
+  web:
+    build: ../frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

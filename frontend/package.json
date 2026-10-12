@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -14,7 +16,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
-    "gen:api": "openapi-typescript http://localhost:8000/api/openapi.json -o src/shared/api/schema.d.ts"
+    "gen:api": "openapi-typescript http://localhost:8000/api/openapi.json -o src/shared/api/schema.d.ts --default-non-nullable false"
   },
   "dependencies": {
     "@mantine/core": "^7.17.0",
@@ -56,6 +58,8 @@
     "vitest": "^3.0.5"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

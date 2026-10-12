@@ -1,0 +1,27 @@
+.bar {
+  display: flex;
+  height: 14px;
+  border-radius: 4px;
+  overflow: hidden;
+  gap: 2px;
+  background: var(--line);
+}
+
+.bar span {
+  min-width: 3px;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.row {
+  padding: 2px 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}

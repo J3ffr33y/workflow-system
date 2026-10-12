@@ -1,0 +1,26 @@
+[importlinter]
+root_package = app
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = Layered architecture: api -> modules -> platform -> core
+type = layers
+layers =
+    app.main
+    app.api
+    app.modules
+    app.platform
+    app.core
+
+[importlinter:contract:ai-gateway]
+name = LLM SDKs only through the AI gateway
+type = forbidden
+source_modules =
+    app.api
+    app.modules
+    app.core
+forbidden_modules =
+    anthropic
+    openai
+    boto3
+allow_indirect_imports = True

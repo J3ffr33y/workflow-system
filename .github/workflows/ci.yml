@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: flow
+          POSTGRES_PASSWORD: flow
+          POSTGRES_DB: flow_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U flow"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      FLOW_DATABASE_URL: postgresql+psycopg://flow:flow@localhost:5432/flow_test
+      FLOW_ENV: test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.13
+      - run: uv sync --frozen --all-groups
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Architecture contracts
+        run: uv run lint-imports
+      - name: Type check
+        run: uv run mypy app
+      - name: Migrations apply and roll back cleanly
+        run: |
+          uv run alembic upgrade head
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+          uv run alembic check
+      - name: Tests
+        run: uv run pytest --cov=app --cov-report=term-missing:skip-covered
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
