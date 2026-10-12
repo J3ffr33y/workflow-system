@@ -1,0 +1,6 @@
+Client Name,updates,Fiscal Year,Year End,Company,Entity,Status,Target Month,Partner,Manager,Preparer,Lodgement Due,Notes,Budget,Last Updated,Frequency,Software
+Northwind Trading Pty Ltd,,2025-2026,June,Top Figures,Company,Completed,September,Alice Partner,Bob Manager,Carol Prep; Dan Prep,2027/5/15,,1500,55:30.0,Yearly,Xero
+"SMITH, John","'@Alice Partner 客户已付款, review completed",2025-2026,June,Top Figures,Individual,Waiting for client,October,Alice Partner,Bob Manager,Carol Prep,2027/5/15,wechat - 群名 会计,0,01:30.5,Yearly,
+"SMITH, John",,2024-2025,June,Top Figures,Individual,Hold,,Alice Partner,,Dan Prep,,,0,35:34.8,,
+Blue Gum Trust,,2025-2026,December,VERITAX PARTNERS,Trust,Working on it,November,Alice Partner,Bob Manager,Erin Newbie,2027/6/12,wait for client's ABN income&amp;exp,200,35:50.7,One-off,Excel; Payroller
+Harbour Cafe Pty Ltd,,2025-2026,June,Top Grants,Company,Waiting for signed EL,August,Alice Partner,Bob Manager,Carol Prep,2027/5/15,,1350,50:26.0,Yearly,Quickbooks

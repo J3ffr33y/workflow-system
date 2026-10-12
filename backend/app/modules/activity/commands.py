@@ -21,7 +21,9 @@ from app.platform.commands import Command, CommandContext, handles
 from app.platform.jsonvalue import to_json
 from app.platform.permissions import P_AUDIT_REVERT
 
-REVERTIBLE = {"item", "item_member", "task", "task_member", "client", "client_entity", "contact"}
+REVERTIBLE = {
+    "item", "item_member", "task", "task_member", "client", "client_entity", "contact", "comment", "external_ref",
+}  # fmt: skip
 NEVER_REVERT_FIELDS = {
     "id",
     "highlight_color",
