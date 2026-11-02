@@ -28,6 +28,10 @@ services:
     env_file: .env
     environment:
       FLOW_DATABASE_URL: postgresql+psycopg://flow:${POSTGRES_PASSWORD}@db:5432/flow
+    volumes:
+      # Uploaded originals (R&D materials). Losing this volume loses the files
+      # that report citations point to; back it up together with pgdata.
+      - uploads:/app/data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -59,3 +63,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

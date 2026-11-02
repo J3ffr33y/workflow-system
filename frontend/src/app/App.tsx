@@ -22,6 +22,7 @@ import { SettingsPage } from "../features/settings/SettingsPage";
 import { SystemPage } from "../features/settings/SystemPage";
 import { UsersPage } from "../features/settings/UsersPage";
 import { WorkspaceSetupPage } from "../features/settings/WorkspaceSetupPage";
+import { RdtiPage } from "../features/rdti/RdtiPage";
 import { Layout } from "./Layout";
 import { theme } from "./theme";
 
@@ -54,6 +55,7 @@ export function App() {
                   <Route path="/w/:wsKey/setup" element={<WorkspaceSetupPage />} />
                   <Route path="/w/:wsKey/migration" element={<MigrationPage />} />
                   <Route path="/w/:wsKey/migration/:runId" element={<MigrationRunPage />} />
+                  <Route path="/rdti/:itemId" element={<RdtiPage />} />
                   <Route path="/clients" element={<ClientsPage />} />
                   <Route path="/clients/:clientId" element={<ClientPage />} />
                   <Route path="/activity" element={<ActivityPage />} />

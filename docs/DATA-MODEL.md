@@ -31,6 +31,12 @@
 | `comments` | Updates / 评论，可挂在 item、client、task 上；`mentions` 存被 @ 的人 | `Comment` |
 | `notifications` | 站内通知 | `Notification Log` |
 | `automation_rules` / `automation_runs` | 规则和每次执行；执行改了什么从审计表读 | `Board Automation` / `Automation Run Log` |
+| `files` / `file_versions` | 上传的文件和它的每个版本（存储位置、类型、大小、SHA-256、上传人） | 链接字段 |
+| `rdti_activities` | R&D 项目下的核心 / 支持活动（CA1、SA1…） | — |
+| `rdti_chunks` | 材料切出的可引用段落：文件版本、页码、位置、正文、所属活动 | — |
+| `rdti_assessments` | 每个活动每个要素的覆盖程度、理由、证据段落；标明 AI 还是人工 | — |
+| `rdti_checklist_items` | 缺口资料清单：要什么、首选 / 替代资料、示例、状态 | — |
+| `rdti_report_sections` / `rdti_claims` / `rdti_citations` | 报告段落、段落里的论点（位置和核查状态）、论点引用的原文 | — |
 
 ## 平台
 
@@ -41,6 +47,7 @@
 | `events` / `event_deliveries` | 事件出箱和每个订阅者的投递状态 |
 | `job_runs` | 定时任务执行记录 |
 | `auth_sessions` / `login_attempts` | 登录会话（只存令牌哈希）和登录限速 |
+| `ai_calls` | 每次模型调用：任务、供应商、模型、客户、结果、token、耗时（不存内容） |
 | `migration_runs` / `migration_rows` / `external_refs` | 迁移批次、逐行暂存与问题、外部 ID 映射（重复导入不重复创建） |
 
 ## 和老系统相比的结构变化
