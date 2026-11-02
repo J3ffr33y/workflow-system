@@ -198,6 +198,9 @@ def _seed_grants() -> str:
     _field(ws, "State", "select", key="state", entity_kind="client",
            config={"options": _opts("NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT")})  # fmt: skip
     _field(ws, "Industry", "text", key="industry", entity_kind="client")
+    # Checked by the AI gateway before any of this client's material is sent
+    # to an external model (R&D report module).
+    _field(ws, "AI Processing Consent", "checkbox", key="ai_consent", entity_kind="client")
 
     _field(ws, "FY/CY", "select", key="fy_cy", config={"options": _opts("FY", "CY")})
     _field(ws, "Grant Type", "select", key="grant_type", config={"options": _opts("R&DTI", "EMDG")})

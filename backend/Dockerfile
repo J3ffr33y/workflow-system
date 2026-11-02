@@ -11,7 +11,8 @@ COPY . .
 ARG GIT_SHA=unknown
 ENV FLOW_GIT_SHA=$GIT_SHA PATH="/app/.venv/bin:$PATH"
 
-RUN useradd --system --uid 1001 app && chown -R app /app
+# The upload volume mounts here; creating it first makes the volume owned by app.
+RUN mkdir -p /app/data/uploads && useradd --system --uid 1001 app && chown -R app /app
 USER app
 EXPOSE 8000
 # API by default; the worker uses the same image with `python -m app.worker`.

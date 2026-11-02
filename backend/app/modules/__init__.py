@@ -19,6 +19,8 @@ ENABLED = [
     "automations",
     "migration",
     "system",
+    "files",
+    "rdti",
 ]
 
 # Optional sub-modules a feature module may provide.

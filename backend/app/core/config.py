@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     upload_dir: str = "./data/uploads"
     max_upload_mb: int = 25
 
+    # AI gateway. "fake" is a deterministic offline stand-in (local demo,
+    # tests); "anthropic" calls the Claude API and only for clients that have
+    # given AI consent; "off" refuses every model call.
+    ai_provider: Literal["fake", "anthropic", "off"] = "fake"
+    anthropic_api_key: SecretStr | None = None
+    ai_model: str = "claude-opus-5-5"
+    ai_effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+
     git_sha: str = Field(default="dev", description="Injected at build time; reported by /api/health")
     log_json: bool = False
 

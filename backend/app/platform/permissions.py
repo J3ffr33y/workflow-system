@@ -42,6 +42,8 @@ P_AUTOMATIONS_MANAGE = "automations.manage"
 P_BOARDS_MANAGE = "boards.manage"
 P_SCHEMA_MANAGE = "schema.manage"  # fields, statuses, roles, lookups
 P_MIGRATION_RUN = "migration.run"
+P_RDTI_WRITE = "rdti.write"  # upload evidence, run assessments, draft and review reports
+P_RDTI_APPROVE = "rdti.approve"  # lock report sections
 P_USERS_MANAGE = "users.manage"  # superadmin only
 P_SYSTEM_ADMIN = "system.admin"  # superadmin only
 
@@ -57,6 +59,7 @@ _MEMBER = _VIEWER | {
     P_EXPORT,
     P_CLIENTS_WRITE,
     P_AUDIT_REVERT,
+    P_RDTI_WRITE,
 }
 _MANAGER = _MEMBER | {
     P_ITEMS_DELETE,
@@ -65,6 +68,7 @@ _MANAGER = _MEMBER | {
     P_CLIENTS_DELETE,
     P_AUDIT_VIEW_VALUES,
     P_AUTOMATIONS_MANAGE,
+    P_RDTI_APPROVE,
 }
 _ADMIN = _MANAGER | {P_BOARDS_MANAGE, P_SCHEMA_MANAGE, P_MIGRATION_RUN}
 

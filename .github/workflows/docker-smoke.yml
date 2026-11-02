@@ -48,6 +48,19 @@ jobs:
           curl -fsS -b /tmp/jar http://localhost:8080/api/auth/me | head -c 400; echo
           curl -fsS http://localhost:8080/ | grep -qi '<div id="root"'
 
+      - name: RDTI file handling works in the image (PDF library, writable upload volume)
+        run: |
+          set -eux
+          docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec -T api python -c "
+          import pymupdf
+          from app.platform.docs.extract import extract
+          from app.modules.files.storage import save_bytes, read_bytes, remove
+          d = pymupdf.open(); d.new_page().insert_text((72, 72), 'We ran 40 experiment runs on a test rig at 80 degrees.')
+          ps = extract(d.tobytes(), 'smoke.pdf'); assert ps and ps[0].page == 1, ps
+          key, _ = save_bytes(b'smoke'); assert read_bytes(key) == b'smoke'; remove(key)
+          print('ok', ps[0].location)
+          "
+
       - name: Restart api, web must still reach it
         run: |
           set -eux
