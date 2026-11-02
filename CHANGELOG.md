@@ -4,6 +4,8 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-02
+
 ### Added
 - "My work" home page: tasks assigned to me grouped by overdue / this week / later /
   no date, unread @mentions and alerts, and a reserved slot for emails waiting for me
