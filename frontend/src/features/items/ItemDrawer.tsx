@@ -1,5 +1,6 @@
 import { Badge, Center, Drawer, Group, Loader, Stack, Tabs, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../../shared/api/client";
 import { useDirectory, useMe, useSchema } from "../../shared/api/hooks";
@@ -8,6 +9,7 @@ import { allowedStatuses } from "../../shared/fields/FieldInput";
 import { StatusMenu } from "../../shared/ui/StatusPill";
 import { buildCtx } from "../../shared/workspace";
 import { ActivityList } from "../activity/ActivityList";
+import { RdtiDrawerPanel } from "../rdti/DrawerPanel";
 import { useUpdateField } from "../boards/useBoardItems";
 import { CommentsPanel } from "./CommentsPanel";
 import { DetailsPanel } from "./DetailsPanel";
@@ -15,6 +17,7 @@ import { TasksPanel } from "./TasksPanel";
 
 /** Item panel, opened anywhere with ?item=<id>. */
 export function ItemDrawer() {
+  const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const id = params.get("item");
   const me = useMe();
@@ -117,6 +120,7 @@ export function ItemDrawer() {
               <Tabs.Tab value="updates">Updates{row.comment_count ? ` (${row.comment_count})` : ""}</Tabs.Tab>
               <Tabs.Tab value="tasks">Tasks{row.task_count ? ` (${row.task_count})` : ""}</Tabs.Tab>
               <Tabs.Tab value="activity">Activity</Tabs.Tab>
+              {ctx.schema.workspace.key === "grants" && <Tabs.Tab value="rdti">{t("rdti.tab")}</Tabs.Tab>}
             </Tabs.List>
             <div style={{ flex: 1, overflow: "auto", padding: "16px 22px 40px" }}>
               <Tabs.Panel value="details">
@@ -140,6 +144,11 @@ export function ItemDrawer() {
                   canRevert={ctx.can("audit.revert") && !!me.data}
                 />
               </Tabs.Panel>
+              {ctx.schema.workspace.key === "grants" && (
+                <Tabs.Panel value="rdti">
+                  <RdtiDrawerPanel itemId={row.id} />
+                </Tabs.Panel>
+              )}
             </div>
           </Tabs>
         </Stack>

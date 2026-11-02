@@ -56,6 +56,14 @@ curl.exe http://localhost:8080/api/health    # 返回里的 git_sha 应该等于
 
 `git pull` 如果提示有本地改动冲突，先执行 `git status` 看改了什么。`deploy/.env` 不会被 git 管，不会冲突。
 
+## 试用 R&D 报告工作台
+
+1. 打开 Grants，在任意看板里点开一个项目，切到「R&D report」页签，点「Open workbench」。
+2. 左边先加一个核心活动，再在「Materials」里上传材料。可以先用仓库里的虚构样例 `backend/tests/fixtures/rdti_sample_notes.md`。
+3. 依次：「Evidence」运行评估 →「Checklist」根据缺口生成清单和邮件草稿 →「Report」生成草稿，打开核查模式，点每句话看原文。
+
+默认 `FLOW_AI_PROVIDER=fake`，不连接任何模型，结果只是关键词匹配，用来走流程。上传的原件存在 Docker 的 `uploads` 卷里，`docker compose down` 不会删，`docker compose down -v` 会连数据库一起删掉。
+
 ## 查看状态和日志
 
 ```powershell
