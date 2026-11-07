@@ -4,6 +4,12 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
 
 ## [Unreleased]
 
+### Changed
+- Roll over names follow the old Smart Board: the new period goes in brackets
+  ("Acme (FY 2027)", "Acme (Roll Over)"), old tags from imported names are replaced
+  instead of stacked, and a clash gets a counter inside the brackets ("Acme (Roll Over 2)").
+- "Add a year" on roll over keeps month-end dates at month end (28 Feb 2027 -> 29 Feb 2028).
+
 ## [0.2.0] - 2026-11-02
 
 ### Added
