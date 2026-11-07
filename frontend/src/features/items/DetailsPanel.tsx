@@ -25,11 +25,13 @@ function FieldRow({
   const value = cellValue(row, col);
   const [draft, setDraft] = useState<any>(value);
   useEffect(() => setDraft(value), [value]);
-  const editable = ctx.can("items.update") && col.editable && col.source !== "mirror" && !row.is_archived;
+  const editable = ctx.can("items.update") && col.editable && !row.is_archived;
+  const type = displayType(col);
+  const label = col.source === "mirror" ? `${col.label} (client)` : col.label;
 
   const save = async (v: any) => {
     if (JSON.stringify(v ?? null) === JSON.stringify(value ?? null)) return;
-    await update(row, col.key, v, value ?? null, (r) => applyValue(r, col, v));
+    await update(row, col.key, v, value ?? null, (r) => applyValue(r, col, v), col.source === "mirror");
     onSaved();
   };
 
@@ -37,11 +39,10 @@ function FieldRow({
     return (
       <div>
         <Text size="xs" c="dimmed" mb={2}>
-          {col.label}
-          {col.source === "mirror" && " (from client)"}
+          {label}
         </Text>
         <div style={{ minHeight: 28, display: "flex", alignItems: "center" }}>
-          {renderValue(displayType(col), value, col, ctx, row) ?? (
+          {renderValue(type, value, col, ctx, row) ?? (
             <Text size="sm" c="dimmed">
               —
             </Text>
@@ -50,13 +51,14 @@ function FieldRow({
       </div>
     );
   }
-  const blur = SAVE_ON_BLUR.has(col.type);
+  const blur = SAVE_ON_BLUR.has(type);
   return (
     <div onBlur={blur ? () => save(draft) : undefined}>
       <FieldInput
         col={col}
+        type={type}
         ctx={ctx}
-        label={col.label}
+        label={label}
         value={draft}
         clientId={row.client}
         boardId={row.board_id}
@@ -64,7 +66,7 @@ function FieldRow({
           setDraft(v);
           if (!blur) save(v);
         }}
-        onEnter={col.type !== "long_text" ? () => save(draft) : undefined}
+        onEnter={type !== "long_text" ? () => save(draft) : undefined}
       />
     </div>
   );

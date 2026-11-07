@@ -121,7 +121,10 @@ export function buildColumnDefs(
     const base: ColDef<ItemRow> = {
       colId: col.key,
       headerName: col.label,
-      headerTooltip: col.source === "mirror" ? `${col.label} (from the client record)` : col.label,
+      headerTooltip:
+        col.source === "mirror"
+          ? `${col.label}: saved on the client, so every board and the client page show the same value`
+          : col.label,
       hide: hidden,
       pinned,
       width: saved?.width ?? DEFAULT_WIDTH[col.key] ?? DEFAULT_WIDTH[displayType(col)] ?? 150,

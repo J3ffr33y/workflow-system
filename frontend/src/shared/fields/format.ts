@@ -71,6 +71,12 @@ export function applyValue(row: ItemRow, col: ColumnSpec, value: any): ItemRow {
       else data[col.key] = value;
       return { ...row, data };
     }
+    case "mirror": {
+      const mirrors = { ...row.mirrors };
+      if (value === null || value === undefined || value === "") delete mirrors[col.key];
+      else mirrors[col.key] = value;
+      return { ...row, mirrors };
+    }
     default:
       return row;
   }
