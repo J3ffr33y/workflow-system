@@ -371,6 +371,23 @@ export function MigrationRunPage() {
                       })
                     }
                   />
+                  <Checkbox
+                    label='Split merged updates at ", " into separate updates'
+                    description="The old export joins a row's updates into one cell."
+                    checked={options.split_comments ?? true}
+                    onChange={(e) => setOptions({ ...options, split_comments: e.currentTarget.checked })}
+                  />
+                  {(options.split_comments ?? true) && (
+                    <Select
+                      size="xs"
+                      w={260}
+                      label="In the merged cell, the first update is the"
+                      data={ORDER_OPTIONS}
+                      value={options.comments_newest_first ? "newest" : "oldest"}
+                      onChange={(v) => setOptions({ ...options, comments_newest_first: v === "newest" })}
+                      allowDeselect={false}
+                    />
+                  )}
                 </Stack>
               </SimpleGrid>
             </Paper>
@@ -556,6 +573,7 @@ export function MigrationRunPage() {
           </>
         )}
 
+        {step === "import" && run.status.startsWith("committed") && <CommentSplit run={run} />}
         {step === "import" && (
           <Paper withBorder p="md">
             {run.status === "committing" && (
@@ -636,5 +654,133 @@ export function MigrationRunPage() {
         )}
       </Stack>
     </Page>
+  );
+}
+
+const ORDER_OPTIONS = [
+  { value: "oldest", label: "oldest (earliest first)" },
+  { value: "newest", label: "newest (latest first)" },
+];
+
+interface SplitPreview {
+  checked: number;
+  to_split: number;
+  new_comments: number;
+  already_split: number;
+  examples: { item: string; before: string; after: string[] }[];
+}
+
+/** Split updates an earlier import left merged: preview first, then apply. */
+function CommentSplit({ run }: { run: Run }) {
+  const qc = useQueryClient();
+  const [order, setOrder] = useState<string>(
+    run.mapping.options?.comments_newest_first ? "newest" : "oldest",
+  );
+  const [busy, setBusy] = useState(false);
+  const newestFirst = order === "newest";
+  const preview = useQuery({
+    queryKey: ["comment-split", run.id, newestFirst],
+    queryFn: () =>
+      api.get<SplitPreview>(`/migration/runs/${run.id}/comment-split`, { newest_first: newestFirst }),
+  });
+  const p = preview.data;
+  if (!p || (p.to_split === 0 && p.already_split === 0)) return null;
+
+  const apply = () =>
+    modals.openConfirmModal({
+      title: "Split merged updates?",
+      children: (
+        <Text size="sm">
+          {p.to_split} updates become {p.new_comments} separate updates. You can undo this from the Activity
+          page, and rolling back the import removes them too.
+        </Text>
+      ),
+      labels: { confirm: "Split", cancel: "Cancel" },
+      onConfirm: async () => {
+        setBusy(true);
+        try {
+          await command("migration.split_comments", { run_id: run.id, newest_first: newestFirst });
+          qc.invalidateQueries({ queryKey: ["comment-split", run.id] });
+          qc.invalidateQueries({ queryKey: ["migration-run", run.id] });
+          qc.invalidateQueries({ queryKey: ["items"] });
+          qc.invalidateQueries({ queryKey: ["comments"] });
+        } catch (e) {
+          notifyError(e, "Could not split updates");
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
+
+  return (
+    <Paper withBorder p="md">
+      <Text fw={600} mb={4}>
+        Merged updates
+      </Text>
+      {p.to_split === 0 ? (
+        <Text size="sm" c="dimmed">
+          All merged updates of this import have been split.
+        </Text>
+      ) : (
+        <>
+          <Text size="sm" c="dimmed" mb="sm">
+            {p.to_split} of {p.checked} imported updates look like several updates joined with ", " by the old
+            export. Check the examples, then split them into {p.new_comments} separate updates.
+          </Text>
+          <Select
+            size="xs"
+            w={300}
+            mb="sm"
+            label="In the merged cell, the first update is the"
+            data={ORDER_OPTIONS}
+            value={order}
+            onChange={(v) => setOrder(v ?? "oldest")}
+            allowDeselect={false}
+          />
+          <ScrollArea.Autosize mah={360}>
+            <Table verticalSpacing="xs">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th w={200}>Item</Table.Th>
+                  <Table.Th>Now</Table.Th>
+                  <Table.Th>After splitting (oldest first)</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {p.examples.map((e, i) => (
+                  <Table.Tr key={i}>
+                    <Table.Td>
+                      <Text size="xs">{e.item}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs">{e.before}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Stack gap={2}>
+                        {e.after.map((a, k) => (
+                          <Text key={k} size="xs">
+                            {k + 1}. {a}
+                          </Text>
+                        ))}
+                      </Stack>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea.Autosize>
+          {p.to_split > p.examples.length && (
+            <Text size="xs" c="dimmed" mt={4}>
+              Showing {p.examples.length} of {p.to_split}.
+            </Text>
+          )}
+          <Group justify="flex-end" mt="sm">
+            <Button loading={busy} onClick={apply}>
+              Split {p.to_split} updates
+            </Button>
+          </Group>
+        </>
+      )}
+    </Paper>
   );
 }
