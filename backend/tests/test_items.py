@@ -15,6 +15,7 @@ from app.modules.clients.commands import (
     UpdateClient,
     UpsertContact,
 )
+from app.modules.clients.models import Client, ClientEntity
 from app.modules.items.commands import (
     ArchiveItems,
     BulkUpdateField,
@@ -27,7 +28,8 @@ from app.modules.items.commands import (
 )
 from app.modules.items.queries import item_detail, list_items
 from app.modules.workspaces.commands import ArchiveBoard, RestoreBoard
-from app.modules.workspaces.models import Board, FiscalYear, LookupValue
+from app.modules.workspaces.models import Board, FiscalYear, LookupValue, Workspace
+from app.modules.workspaces.schema import item_columns
 from app.platform.commands import Origin
 from app.platform.permissions import SYSTEM_ACTOR
 from tests.conftest import make_user, run, run_full
@@ -280,3 +282,85 @@ def test_mirrors_show_client_facts(seeded: dict[str, str], client_id: str) -> No
         filter_tree={"field": "portal_access_expiry", "operator": "after", "value": "2028-01-01"},
     )
     assert len(got) == 1
+
+
+def test_board_edits_client_facts_through_mirror_columns(seeded: dict[str, str], client_id: str) -> None:
+    b = uuid.UUID(boards(seeded["grants"])["FY 2026"])
+    first = uuid.UUID(run(CreateItem(board_id=b, values={"name": "A", "client": client_id}))["id"])
+    run(CreateItem(board_id=b, values={"name": "B", "client": client_id}))
+
+    run(UpdateItemField(item_id=first, field="state", value="vic"))
+    run(UpdateItemField(item_id=first, field="industry", value="Robotics"))
+    run(UpdateItemField(item_id=first, field="abn", value="53 004 085 616"))
+
+    # Saved on the client, so the other item and the client record agree.
+    with read_session() as s:
+        c = s.get(Client, uuid.UUID(client_id))
+        assert c is not None
+        assert c.data["state"] == "vic" and c.data["industry"] == "Robotics"
+        e = s.scalars(select(ClientEntity).where(ClientEntity.client_id == c.id)).one()
+        assert e.abn == "53004085616"
+    for r in rows(seeded["grants"]):
+        assert r["mirrors"]["state"] == "vic"
+        assert r["mirrors"]["abn"] == "53004085616"
+
+    # ...and a change made on the client page shows on the board.
+    run(UpdateClient(client_id=uuid.UUID(client_id), data={"state": "qld"}))
+    assert {r["mirrors"]["state"] for r in rows(seeded["grants"])} == {"qld"}
+
+
+def test_mirror_columns_use_the_client_field_type(seeded: dict[str, str]) -> None:
+    with read_session() as s:
+        ws = s.scalars(select(Workspace).where(Workspace.key == "grants")).one()
+        cols = {c.key: c for c in item_columns(s, ws)}
+    assert cols["state"].editable and cols["state"].config["display_type"] == "select"
+    assert [o["label"] for o in cols["state"].config["options"]][:2] == ["NSW", "VIC"]
+    assert cols["abn"].editable and cols["contact_name"].editable
+
+
+def test_mirror_edit_validates_and_checks_for_conflicts(seeded: dict[str, str], client_id: str) -> None:
+    b = uuid.UUID(boards(seeded["grants"])["FY 2026"])
+    iid = uuid.UUID(run(CreateItem(board_id=b, values={"name": "A", "client": client_id}))["id"])
+    with pytest.raises(ValidationFailed):
+        run(UpdateItemField(item_id=iid, field="state", value="mars"))
+    with pytest.raises(ValidationFailed):
+        run(UpdateItemField(item_id=iid, field="abn", value="123"))
+    run(UpdateClient(client_id=uuid.UUID(client_id), data={"industry": "Food"}))
+    with pytest.raises(Conflict):
+        run(UpdateItemField(item_id=iid, field="industry", value="X", expected=None, check_expected=True))
+    run(UpdateItemField(item_id=iid, field="industry", value="X", expected="Food", check_expected=True))
+
+
+def test_mirror_edit_creates_missing_contact_and_entity(seeded: dict[str, str]) -> None:
+    cid = run(CreateClient(name="Bare Client"))["id"]
+    b = uuid.UUID(boards(seeded["grants"])["FY 2026"])
+    iid = uuid.UUID(run(CreateItem(board_id=b, values={"name": "A", "client": cid}))["id"])
+    run(UpdateItemField(item_id=iid, field="contact_name", value="Lulu"))
+    run(UpdateItemField(item_id=iid, field="abn", value="53004085616"))
+    r = rows(seeded["grants"])[0]
+    assert r["mirrors"]["contact_name"] == "Lulu"
+    assert r["mirrors"]["abn"] == "53004085616"
+
+
+def test_mirror_edit_needs_a_client(seeded: dict[str, str]) -> None:
+    b = uuid.UUID(boards(seeded["grants"])["FY 2026"])
+    iid = uuid.UUID(run(CreateItem(board_id=b, values={"name": "A"}))["id"])
+    with pytest.raises(ValidationFailed) as e:
+        run(UpdateItemField(item_id=iid, field="state", value="vic"))
+    assert e.value.code == "no_client"
+
+
+def test_item_history_includes_client_fact_changes(seeded: dict[str, str], client_id: str) -> None:
+    from app.modules.activity.queries import entity_activity
+
+    run(UpdateClient(client_id=uuid.UUID(client_id), data={"industry": "Before item"}))
+    b = uuid.UUID(boards(seeded["grants"])["FY 2026"])
+    iid = uuid.UUID(run(CreateItem(board_id=b, values={"name": "A", "client": client_id}))["id"])
+    run(UpdateItemField(item_id=iid, field="state", value="vic"))
+    run(UpdateItemField(item_id=iid, field="abn", value="53004085616"))
+    with read_session() as s:
+        history = entity_activity(s, SYSTEM_ACTOR, "item", iid)
+    changed = {(e["entity_type"], c["field"], c["after"]) for e in history for c in e["changes"]}
+    assert ("client", "data.state", "vic") in changed
+    assert ("client_entity", "abn", "53004085616") in changed
+    assert not any(c[2] == "Before item" for c in changed)

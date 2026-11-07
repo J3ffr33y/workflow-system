@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from app.core.errors import Conflict, NotFound, ValidationFailed
 from app.core.time import business_today
-from app.modules.clients.models import Client, ClientEntity
+from app.modules.clients.models import Client, ClientEntity, Contact
 from app.modules.items.models import Item, ItemMember
 from app.modules.workspaces.models import Board, FiscalYear, MemberRole, Status, Workspace
 from app.modules.workspaces.schema import ColumnSpec, FieldResolver, columns_by_key, item_columns
@@ -99,7 +99,42 @@ class ItemWriter:
             return [str(m.user_id) for m in self.members(item, col.config["role"])]
         if col.source == "data":
             return (item.data or {}).get(key)
+        if col.source == "mirror":
+            return to_json(self._mirror_current(item, col))
         return None
+
+    def _mirror_current(self, item: Item, col: ColumnSpec) -> Any:
+        if item.client_id is None:
+            return None
+        of, path = col.config.get("of"), col.config["field"]
+        target: Any
+        if of == "client":
+            target = self.s.get(Client, item.client_id)
+        elif of == "entity":
+            target = self.s.get(ClientEntity, item.entity_id) if item.entity_id else None
+            if target is None:
+                target = self.s.scalar(
+                    select(ClientEntity)
+                    .where(ClientEntity.client_id == item.client_id, ClientEntity.deleted_at.is_(None))
+                    .order_by(ClientEntity.is_primary.desc(), ClientEntity.created_at)
+                    .limit(1)
+                )
+        else:
+            target = self.s.scalar(
+                select(Contact)
+                .where(
+                    Contact.client_id == item.client_id,
+                    Contact.is_primary.is_(True),
+                    Contact.deleted_at.is_(None),
+                )
+                .order_by(Contact.created_at.desc())
+                .limit(1)
+            )
+        if target is None:
+            return None
+        if path.startswith("data."):
+            return (target.data or {}).get(path[5:])
+        return getattr(target, path, None)
 
     # ---- writing ---------------------------------------------------------
     def set(
@@ -121,6 +156,8 @@ class ItemWriter:
                 return self._set_core(item, col, value, parse_text)
             if col.source == "role":
                 return self._set_role(item, col, value, parse_text)
+            if col.source == "mirror":
+                return self._set_mirror(item, col, value, parse_text)
             return self._set_data(item, col, value, parse_text)
         except FieldValueError as e:
             raise ValidationFailed(
@@ -138,6 +175,35 @@ class ItemWriter:
             raise ValidationFailed(f"'{col.label}' is required", code="required", details={"field": col.key})
         item.set_data(col.key, v)
         return v
+
+    def _set_mirror(self, item: Item, col: ColumnSpec, value: Any, parse_text: bool) -> Any:
+        """Write a mirror cell through to the client record it shows.
+
+        Goes through the clients module's own command, so the change is audited
+        on the client and every item of that client shows the new value.
+        """
+        from app.modules.clients.commands import SetLinkedValue
+
+        if item.client_id is None:
+            raise ValidationFailed(
+                f"'{col.label}' belongs to the client; pick a client first",
+                code="no_client",
+                details={"field": col.key},
+            )
+        if parse_text:
+            ft = field_types.get(col.config.get("display_type", "text"))
+            value = ft.parse_text(value, col.config, self.resolver)
+        of = col.config.get("of")
+        result = self.ctx.run(
+            SetLinkedValue(
+                client_id=item.client_id,
+                of=of,
+                field=col.config["field"],
+                value=value,
+                entity_id=item.entity_id if of == "entity" else None,
+            )
+        )
+        return result["value"]
 
     def _set_role(self, item: Item, col: ColumnSpec, value: Any, parse_text: bool) -> Any:
         ft = field_types.get("users")

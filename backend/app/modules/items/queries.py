@@ -149,7 +149,9 @@ class ItemQueryContext:
                 .scalar_subquery()
             )
             return ColumnRef(col.key, kind, text=sub, typed=sub)
-        target = self.client if col.config.get("of") == "client" else self.entity
+        if col.config.get("of") == "entity":
+            return self._entity_mirror_ref(col)
+        target = self.client
         if field.startswith("data."):
             ref = jsonb_column(field[5:], kind, target.data)
             return ColumnRef(col.key, kind, text=ref.text, typed=ref.typed, multi=ref.multi)
@@ -158,6 +160,37 @@ class ItemQueryContext:
         if kind == Kind.REF:
             typed = attr.cast(String)
         return ColumnRef(col.key, kind, text=attr.cast(String), typed=typed)
+
+    def _entity_mirror_ref(self, col: ColumnSpec) -> ColumnRef:
+        """The item's own entity, or the client's primary entity when the item
+        has none (Grants items usually don't pick one), same as the board shows."""
+        kind = Kind(col.kind)
+        field = col.config["field"]
+        primary = (
+            select(ClientEntity.id)
+            .where(ClientEntity.client_id == Item.client_id, ClientEntity.deleted_at.is_(None))
+            .order_by(ClientEntity.is_primary.desc(), ClientEntity.created_at)
+            .limit(1)
+            .scalar_subquery()
+        )
+        ent = aliased(ClientEntity, name="me")
+
+        def sub(expr: Any) -> Any:
+            if expr is None:
+                return None
+            return (
+                select(expr)
+                .where(ent.id == func.coalesce(Item.entity_id, primary))
+                .correlate(Item)
+                .scalar_subquery()
+            )
+
+        if field.startswith("data."):
+            ref = jsonb_column(field[5:], kind, ent.data)
+            return ColumnRef(col.key, kind, text=sub(ref.text), typed=sub(ref.typed), multi=sub(ref.multi))
+        attr = getattr(ent, field)
+        typed = attr.cast(String) if kind == Kind.REF else attr
+        return ColumnRef(col.key, kind, text=sub(attr.cast(String)), typed=sub(typed))
 
     def sort_expr(self, key: str) -> ColumnElement[Any]:
         if key == "status":
@@ -244,6 +277,16 @@ def hydrate(s: Session, qc: ItemQueryContext, items: list[Item]) -> list[dict[st
             select(ClientEntity).where(ClientEntity.id.in_({i.entity_id for i in items if i.entity_id}))
         )
     }
+    # Items without their own entity show the client's primary one in mirror columns.
+    primary_entities: dict[uuid.UUID, ClientEntity] = {}
+    no_entity = {i.client_id for i in items if i.client_id and not i.entity_id}
+    if no_entity:
+        for e in s.scalars(
+            select(ClientEntity)
+            .where(ClientEntity.client_id.in_(no_entity), ClientEntity.deleted_at.is_(None))
+            .order_by(ClientEntity.is_primary, ClientEntity.created_at.desc())
+        ):
+            primary_entities[e.client_id] = e  # last one wins: primary, then oldest
     members: dict[uuid.UUID, dict[str, list[str]]] = {}
     for m in s.scalars(select(ItemMember).where(ItemMember.item_id.in_(ids)).order_by(ItemMember.created_at)):
         members.setdefault(m.item_id, {}).setdefault(m.role_key, []).append(str(m.user_id))
@@ -311,11 +354,12 @@ def hydrate(s: Session, qc: ItemQueryContext, items: list[Item]) -> list[dict[st
     for it in items:
         client = clients.get(it.client_id) if it.client_id else None
         entity = entities.get(it.entity_id) if it.entity_id else None
+        mirror_entity = entity or (primary_entities.get(it.client_id) if it.client_id else None)
         mirrors: dict[str, Any] = {}
         for mc in mirror_cols:
             of = mc.config.get("of")
             target: Any = (
-                client if of == "client" else entity if of == "entity" else contacts.get(it.client_id)  # type: ignore[arg-type]
+                client if of == "client" else mirror_entity if of == "entity" else contacts.get(it.client_id)  # type: ignore[arg-type]
             )
             if target is None:
                 continue
