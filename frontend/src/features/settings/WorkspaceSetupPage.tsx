@@ -2,6 +2,7 @@ import {
   ActionIcon,
   Badge,
   Button,
+  Checkbox,
   ColorSwatch,
   Group,
   Modal,
@@ -68,6 +69,7 @@ export function WorkspaceSetupPage() {
           <Tabs.Tab value="statuses">Statuses</Tabs.Tab>
           <Tabs.Tab value="roles">Team roles</Tabs.Tab>
           <Tabs.Tab value="boards">Boards</Tabs.Tab>
+          <Tabs.Tab value="due-dates">Due date rules</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="fields">
           <FieldsTab />
@@ -84,6 +86,9 @@ export function WorkspaceSetupPage() {
         </Tabs.Panel>
         <Tabs.Panel value="boards">
           <BoardsTab />
+        </Tabs.Panel>
+        <Tabs.Panel value="due-dates">
+          <DueDatesTab />
         </Tabs.Panel>
       </Tabs>
     </Page>
@@ -578,6 +583,147 @@ function BoardsTab() {
             ))}
         </>
       )}
+    </Stack>
+  );
+}
+
+const DUE_DATE_RULES = [
+  {
+    key: "ato_quarterly",
+    label: "Quarterly: next ATO due date",
+    help: "When a quarterly item's due date rolls forward by frequency, it moves to the next date in the table below.",
+  },
+  {
+    key: "skip_bas_months",
+    label: "Monthly: skip BAS months",
+    help: "A monthly item's due date or target month that lands in January, April, July or October moves one month on.",
+  },
+];
+
+type QuarterRow = { label: string; due_date: string };
+
+function DueDatesTab() {
+  const { schema } = useWorkspace();
+  const updateBoard = useCommand("boards.update", { invalidate: [["schema"]], success: "Board saved" });
+  const updateWs = useCommand("workspaces.update", { invalidate: [["schema"]], success: "Due dates saved" });
+  const saved: QuarterRow[] = schema?.workspace.settings?.ato_quarterly_due_dates ?? [];
+  const [rows, setRows] = useState<QuarterRow[] | null>(null);
+  if (!schema) return null;
+  const table = rows ?? saved;
+  const active = schema.boards.filter((b) => !b.archived);
+  const setRow = (i: number, patch: Partial<QuarterRow>) =>
+    setRows(table.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  return (
+    <Stack maw={760}>
+      <Text size="sm" c="dimmed">
+        These rules apply when an automation pushes a date forward by the item&apos;s frequency, the same way
+        the old Smart Board handled BAS and IAS.
+      </Text>
+      <Table withTableBorder style={{ background: "var(--surface)" }}>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Board</Table.Th>
+            {DUE_DATE_RULES.map((r) => (
+              <Table.Th key={r.key} title={r.help}>
+                {r.label}
+              </Table.Th>
+            ))}
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {active.map((b) => {
+            const current: string[] = b.settings?.due_date_rules ?? [];
+            return (
+              <Table.Tr key={b.id}>
+                <Table.Td>{b.name}</Table.Td>
+                {DUE_DATE_RULES.map((r) => (
+                  <Table.Td key={r.key}>
+                    <Checkbox
+                      aria-label={`${b.name}: ${r.label}`}
+                      checked={current.includes(r.key)}
+                      onChange={(e) =>
+                        updateBoard.mutate({
+                          board_id: b.id,
+                          settings: {
+                            due_date_rules: e.currentTarget.checked
+                              ? [...current, r.key]
+                              : current.filter((k) => k !== r.key),
+                          },
+                        })
+                      }
+                    />
+                  </Table.Td>
+                ))}
+              </Table.Tr>
+            );
+          })}
+        </Table.Tbody>
+      </Table>
+
+      <Text fw={600} mt="md">
+        ATO quarterly due dates
+      </Text>
+      <Text size="sm" c="dimmed">
+        A date past the last row is not rolled; the automation log says the table needs extending.
+      </Text>
+      <Table withTableBorder style={{ background: "var(--surface)" }}>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Quarter</Table.Th>
+            <Table.Th>Due date</Table.Th>
+            <Table.Th w={40} />
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {table.map((r, i) => (
+            <Table.Tr key={i}>
+              <Table.Td>
+                <TextInput
+                  aria-label="Quarter"
+                  placeholder="FY 2026-27 Q4"
+                  value={r.label}
+                  onChange={(e) => setRow(i, { label: e.currentTarget.value })}
+                />
+              </Table.Td>
+              <Table.Td>
+                <TextInput
+                  aria-label="Due date"
+                  type="date"
+                  value={r.due_date}
+                  onChange={(e) => setRow(i, { due_date: e.currentTarget.value })}
+                />
+              </Table.Td>
+              <Table.Td>
+                <Button
+                  size="compact-sm"
+                  variant="subtle"
+                  color="red"
+                  onClick={() => setRows(table.filter((_, j) => j !== i))}
+                >
+                  Remove
+                </Button>
+              </Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+      <Group>
+        <Button variant="light" onClick={() => setRows([...table, { label: "", due_date: "" }])}>
+          Add quarter
+        </Button>
+        <Button
+          disabled={rows === null}
+          loading={updateWs.isPending}
+          onClick={() =>
+            updateWs.mutate(
+              { workspace_id: schema.workspace.id, settings: { ato_quarterly_due_dates: table } },
+              { onSuccess: () => setRows(null) },
+            )
+          }
+        >
+          Save due dates
+        </Button>
+      </Group>
     </Stack>
   );
 }

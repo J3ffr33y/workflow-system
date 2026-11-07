@@ -16,6 +16,16 @@ from sqlalchemy import select
 
 from app.core.errors import ValidationFailed
 from app.core.time import business_today, utcnow
+from app.modules.automations.dates import (
+    DEFAULT_ATO_QUARTERLY_DUE_DATES,
+    RULE_ATO_QUARTERLY,
+    RULE_SKIP_BAS_MONTHS,
+    add_period,
+    lead_delta,
+    next_quarterly_due,
+    skip_bas_month,
+    skip_bas_month_number,
+)
 from app.modules.items.models import Item, ItemMember
 from app.modules.items.service import ItemWriter
 from app.modules.tasks.commands import CreateTask, create_task_for
@@ -122,18 +132,25 @@ class DateReached(Trigger):
         if col is None or col.kind != "date":
             raise ValidationFailed("trigger needs a date field")
         off = config.get("offset") or {}
-        amount = int(off.get("amount", 0))
-        if amount < 0:
-            raise ValidationFailed("offset must be positive; use direction")
-        return {
-            "field": config["field"],
-            "offset": {
-                "amount": amount,
-                "unit": off.get("unit", "d"),
-                "direction": off.get("direction", "before"),
-            },
-            "mode": config.get("mode", "on_or_after"),
-        }
+        direction = off.get("direction", "before")
+        if direction not in ("before", "after"):
+            raise ValidationFailed("direction must be before or after")
+        if any(k in off for k in ("months", "weeks", "days")):
+            # Grants lead time: months, weeks and days together ("1 month 2 weeks before").
+            parts = {k: int(off.get(k) or 0) for k in ("months", "weeks", "days")}
+            if any(v < 0 for v in parts.values()):
+                raise ValidationFailed("offset must be positive; use direction")
+            offset: dict[str, Any] = {**parts, "direction": direction}
+        else:
+            amount = int(off.get("amount", 0))
+            if amount < 0:
+                raise ValidationFailed("offset must be positive; use direction")
+            offset = {"amount": amount, "unit": off.get("unit", "d"), "direction": direction}
+        try:
+            lead_delta(offset)
+        except ValueError as e:
+            raise ValidationFailed(str(e)) from e
+        return {"field": config["field"], "offset": offset, "mode": config.get("mode", "on_or_after")}
 
     @staticmethod
     def target_date(config: dict[str, Any], today: date) -> date:
@@ -143,8 +160,8 @@ class DateReached(Trigger):
         field equals today + 30d.
         """
         off = config["offset"]
-        delta = step(int(off["amount"]), off["unit"])
-        return today + delta if off["direction"] == "before" else today - delta
+        delta = lead_delta(off)
+        return today + delta if off.get("direction", "before") == "before" else today - delta
 
 
 TRIGGERS: dict[str, Trigger] = {
@@ -222,7 +239,11 @@ class AdvanceDate(Action):
 
     config: {"field": "due_date", "by": "frequency", "frequency_field": "frequency"}
          or {"field": "reset_date", "by": {"amount": 1, "unit": "m"}}
-    Month fields (1-12) advance modulo 12.
+    Month fields (1-12) advance modulo 12. Month-end dates stay at month end.
+    Board rules (boards.settings["due_date_rules"]) reproduce the old BAS /
+    IAS special cases: "ato_quarterly" moves a quarterly due date to the
+    next date in the workspace's ATO table; "skip_bas_months" moves a
+    monthly item's due date / month out of January, April, July, October.
     """
 
     type = "advance_date"
@@ -246,28 +267,60 @@ class AdvanceDate(Action):
 
     def run(self, a: ActionContext, config: dict[str, Any]) -> str:
         by = config["by"]
+        freq_key = config["frequency_field"]
+        freq = str(a.writer.current(a.item, freq_key) or "") if freq_key in a.writer.columns else ""
         if by == "frequency":
-            freq = a.writer.current(a.item, config["frequency_field"])
-            delta = FREQUENCY_STEPS.get(str(freq or ""))
+            delta = FREQUENCY_STEPS.get(freq)
             if delta is None:
                 return f"skipped: frequency '{freq}' has no interval"
         else:
             delta = step(int(by.get("amount", 1)), by["unit"])
-        col = a.writer.column(config["field"])
-        current = a.writer.current(a.item, config["field"])
-        if current in (None, ""):
-            return "skipped: no date"
+        field = config["field"]
+        col = a.writer.column(field)
+        current = a.writer.current(a.item, field)
+        board_rules = _board_due_date_rules(a)
+        skip_bas = RULE_SKIP_BAS_MONTHS in board_rules and freq == "monthly"
         if col.type == "month":
             months = delta.months + delta.years * 12
-            new: Any = (int(current) - 1 + months) % 12 + 1
+            if months == 0:
+                return "skipped: interval is shorter than a month"
+            # An empty month starts from this month, as the old Target Month push did.
+            base = int(current) if current not in (None, "") else business_today().month
+            new: Any = (base - 1 + months) % 12 + 1
+            if skip_bas:
+                new = skip_bas_month_number(new)
+        elif current in (None, ""):
+            return "skipped: no date"
         elif col.type == "year_month":
             y, m = (int(x) for x in current.split("-"))
             d = date(y, m, 1) + delta
             new = f"{d.year:04d}-{d.month:02d}"
         else:
-            new = (date.fromisoformat(current) + delta).isoformat()
-        a.writer.set(a.item, config["field"], new)
-        return f"{config['field']}: {current} -> {new}"
+            cur = date.fromisoformat(current)
+            ato = RULE_ATO_QUARTERLY in board_rules and by == "frequency" and freq == "quarterly"
+            if ato and field == "due_date":
+                nxt, message = next_quarterly_due(cur, _quarterly_table(a))
+                if nxt is None:
+                    return f"skipped: {message}"
+                new_d = nxt
+            else:
+                new_d = add_period(cur, delta)
+            if skip_bas and field == "due_date":
+                new_d = skip_bas_month(new_d)
+            new = new_d.isoformat()
+        if new == current:
+            return f"{field}: unchanged"
+        a.writer.set(a.item, field, new)
+        return f"{field}: {current} -> {new}"
+
+
+def _board_due_date_rules(a: ActionContext) -> set[str]:
+    return set((a.writer.board(a.item.board_id).settings or {}).get("due_date_rules") or [])
+
+
+def _quarterly_table(a: ActionContext) -> list[dict[str, str]]:
+    rows = (a.writer.ws.settings or {}).get("ato_quarterly_due_dates")
+    return DEFAULT_ATO_QUARTERLY_DUE_DATES if rows is None else list(rows)
 
 
 class NotifyRoles(Action):

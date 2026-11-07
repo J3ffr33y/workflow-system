@@ -4,6 +4,21 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
 
 ## [Unreleased]
 
+### Added
+- Due-date rules carried over from the old Smart Board (Setup → Due date rules):
+  - month-end dates stay at month end when pushed forward (30 Apr + 1 month = 31 May);
+  - "Quarterly: next ATO due date" per board: a quarterly due date rolls to the next
+    date in an editable ATO table, and stops with a note in the automation log past
+    the last row;
+  - "Monthly: skip BAS months" per board: a monthly due date or target month landing in
+    January, April, July or October moves one month on.
+  New installs turn these on for BAS and a new IAS board.
+- Date triggers accept a combined lead time (months + weeks + days), as Grants used.
+
+### Changed
+- Highlight rules behave like the old Grants board: a row keeps its highlight while it is
+  inside the window and loses it (only the rule's own highlight) once the date moves out.
+
 ## [0.2.0] - 2026-11-02
 
 ### Added

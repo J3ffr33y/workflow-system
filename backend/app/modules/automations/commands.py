@@ -210,6 +210,54 @@ def rule_matches_item(ctx: CommandContext, ws: Workspace, rule: AutomationRule, 
     return bool(ctx.session.scalar(q))
 
 
+class ClearStaleHighlight(Command):
+    """Remove a highlight its rule placed once the rule no longer applies.
+
+    Grants staff read a highlighted row as "needs attention now". When the
+    date is moved out of the window (or cleared) the old system removed the
+    rule's own highlight on its next daily pass; highlights set by another
+    rule, or none at all, are left alone.
+    """
+
+    command_name = "automations.clear_stale_highlight"
+    permission = P_AUTOMATIONS_MANAGE
+    exposed = False
+
+    rule_id: uuid.UUID
+    item_id: uuid.UUID
+
+
+@handles(ClearStaleHighlight)
+def clear_stale_highlight(ctx: CommandContext, cmd: ClearStaleHighlight) -> dict[str, Any]:
+    s = ctx.session
+    rule = s.get(AutomationRule, cmd.rule_id)
+    item = s.get(Item, cmd.item_id)
+    if rule is None or item is None or item.deleted_at is not None:
+        raise NotFound("rule or item not found")
+    ctx.authorize(P_AUTOMATIONS_MANAGE, rule.workspace_id)
+    if item.highlight_rule_id != rule.id:
+        return {"status": "skipped", "reason": "highlight not owned by this rule"}
+    item.highlight_color = None
+    item.highlight_rule_id = None
+    s.flush()
+    s.add(
+        AutomationRun(
+            rule_id=rule.id,
+            workspace_id=rule.workspace_id,
+            item_id=item.id,
+            trigger_source="schedule",
+            status="succeeded",
+            detail={
+                "trigger": rule.trigger,
+                "actions": [{"type": "clear_highlight", "result": "condition no longer met"}],
+            },
+            command_id=ctx.command_id,
+            changes_count=sum(len(c.changes) for c in ctx._changes.values()),
+        )
+    )
+    return {"status": "succeeded"}
+
+
 class RecordRunFailure(Command):
     """Failures are recorded in their own transaction (the failed one rolled back)."""
 
