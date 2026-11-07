@@ -218,7 +218,7 @@ def test_rollover_to_next_fy_board(seeded: dict[str, str], client_id: str) -> No
     new_id = res["created"][0]
     new = next(r for r in rows(seeded["grants"]) if r["id"] == new_id)
     assert new["board_id"] == bs["FY 2027"]
-    assert new["name"] == "Roboworks FY 2027"
+    assert new["name"] == "Roboworks (FY 2027)"
     assert new["status"] == "not_started"
     assert new["data"].get("grants_priority") == "s1"  # carried
     assert "ap_submit_date" not in new["data"] and "notes" not in new["data"]  # cleared by default
@@ -238,7 +238,34 @@ def test_rollover_accounting_same_board_adds_a_year(seeded: dict[str, str], clie
     assert new["board_id"] == str(b)
     assert new["fiscal_year"] == fy("2026-2027")
     assert new["due_date"] == "2028-05-15"
-    assert new["name"] == "Roboworks ITR 2026-2027"
+    assert new["name"] == "Roboworks ITR (2026-2027)"
+
+
+def test_rollover_names_follow_old_smart_board(seeded: dict[str, str], client_id: str) -> None:
+    b = uuid.UUID(boards(seeded["accounting"])["ITR"])
+
+    def roll(name: str, **values: Any) -> str:
+        src = uuid.UUID(
+            run(CreateItem(board_id=b, values={"name": name, "client": client_id, **values}))["id"]
+        )
+        new_id = run(RolloverItems(item_ids=[src]))["created"][0]
+        return next(r for r in rows(seeded["accounting"]) if r["id"] == new_id)["name"]
+
+    # Imported names carry the old tags; they are replaced, not stacked.
+    assert roll("Acme (FY 2025)", fiscal_year=fy("2025-2026")) == "Acme (2026-2027)"
+    assert roll("Beta (Roll Over)") == "Beta (Roll Over 2)"  # "Beta (Roll Over)" itself is taken
+    assert roll("Gamma (Roll Over 3)") == "Gamma (Roll Over)"
+    # Same name twice: a counter goes inside the tag.
+    assert roll("Delta") == "Delta (Roll Over)"
+    assert roll("Delta") == "Delta (Roll Over 2)"
+
+
+def test_rollover_add_year_keeps_month_end(seeded: dict[str, str], client_id: str) -> None:
+    b = uuid.UUID(boards(seeded["accounting"])["ITR"])
+    src = uuid.UUID(run(CreateItem(board_id=b, values={
+        "name": "Eps", "client": client_id, "due_date": "2027-02-28"}))["id"])  # fmt: skip
+    new_id = run(RolloverItems(item_ids=[src]))["created"][0]
+    assert next(r for r in rows(seeded["accounting"]) if r["id"] == new_id)["due_date"] == "2028-02-29"
 
 
 def test_undo_reverts_and_refuses_to_clobber(seeded: dict[str, str], client_id: str) -> None:

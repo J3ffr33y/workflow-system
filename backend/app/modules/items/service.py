@@ -2,6 +2,7 @@
 migration. Everything here runs inside a CommandContext (one transaction).
 """
 
+import calendar
 import uuid
 from datetime import date
 from typing import Any
@@ -342,7 +343,12 @@ def add_years(value: Any, type_: str, years: int = 1) -> Any:
     if value in (None, ""):
         return value
     if type_ == "date":
-        return (date.fromisoformat(value) + relativedelta(years=years)).isoformat()
+        d = date.fromisoformat(value)
+        nxt = d + relativedelta(years=years)
+        # Month end stays month end, as in the old rollover: 28 Feb 2027 -> 29 Feb 2028.
+        if d.day == calendar.monthrange(d.year, d.month)[1]:
+            nxt = nxt.replace(day=calendar.monthrange(nxt.year, nxt.month)[1])
+        return nxt.isoformat()
     if type_ == "year_month":
         y, m = value.split("-")
         return f"{int(y) + years:04d}-{m}"
