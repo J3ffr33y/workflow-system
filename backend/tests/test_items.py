@@ -348,3 +348,19 @@ def test_mirror_edit_needs_a_client(seeded: dict[str, str]) -> None:
     with pytest.raises(ValidationFailed) as e:
         run(UpdateItemField(item_id=iid, field="state", value="vic"))
     assert e.value.code == "no_client"
+
+
+def test_item_history_includes_client_fact_changes(seeded: dict[str, str], client_id: str) -> None:
+    from app.modules.activity.queries import entity_activity
+
+    run(UpdateClient(client_id=uuid.UUID(client_id), data={"industry": "Before item"}))
+    b = uuid.UUID(boards(seeded["grants"])["FY 2026"])
+    iid = uuid.UUID(run(CreateItem(board_id=b, values={"name": "A", "client": client_id}))["id"])
+    run(UpdateItemField(item_id=iid, field="state", value="vic"))
+    run(UpdateItemField(item_id=iid, field="abn", value="53004085616"))
+    with read_session() as s:
+        history = entity_activity(s, SYSTEM_ACTOR, "item", iid)
+    changed = {(e["entity_type"], c["field"], c["after"]) for e in history for c in e["changes"]}
+    assert ("client", "data.state", "vic") in changed
+    assert ("client_entity", "abn", "53004085616") in changed
+    assert not any(c[2] == "Before item" for c in changed)

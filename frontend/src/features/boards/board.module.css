@@ -113,3 +113,18 @@
     margin: 0 8px 8px;
   }
 }
+
+.historyCell {
+  cursor: pointer;
+  height: 100%;
+}
+.historyIcon {
+  color: var(--ink-soft);
+  opacity: 0;
+}
+:global(.ag-row-hover) .historyIcon {
+  opacity: 1;
+}
+.historyCell:hover {
+  text-decoration: underline;
+}

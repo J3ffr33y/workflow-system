@@ -109,7 +109,7 @@ def run_rows(
 
 
 def comment_split_preview(
-    s: Session, actor: Actor, run_id: uuid.UUID, newest_first: bool = False, limit: int = 20
+    s: Session, actor: Actor, run_id: uuid.UUID, newest_first: bool = True, limit: int = 20
 ) -> dict[str, Any]:
     """What migration.split_comments would do, without doing it."""
     from app.modules.items.models import Item

@@ -383,7 +383,7 @@ export function MigrationRunPage() {
                       w={260}
                       label="In the merged cell, the first update is the"
                       data={ORDER_OPTIONS}
-                      value={options.comments_newest_first ? "newest" : "oldest"}
+                      value={(options.comments_newest_first ?? true) ? "newest" : "oldest"}
                       onChange={(v) => setOptions({ ...options, comments_newest_first: v === "newest" })}
                       allowDeselect={false}
                     />
@@ -674,7 +674,7 @@ interface SplitPreview {
 function CommentSplit({ run }: { run: Run }) {
   const qc = useQueryClient();
   const [order, setOrder] = useState<string>(
-    run.mapping.options?.comments_newest_first ? "newest" : "oldest",
+    (run.mapping.options?.comments_newest_first ?? true) ? "newest" : "oldest",
   );
   const [busy, setBusy] = useState(false);
   const newestFirst = order === "newest";
@@ -734,7 +734,7 @@ function CommentSplit({ run }: { run: Run }) {
             label="In the merged cell, the first update is the"
             data={ORDER_OPTIONS}
             value={order}
-            onChange={(v) => setOrder(v ?? "oldest")}
+            onChange={(v) => setOrder(v ?? "newest")}
             allowDeselect={false}
           />
           <ScrollArea.Autosize mah={360}>

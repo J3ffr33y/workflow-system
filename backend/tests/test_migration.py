@@ -133,7 +133,7 @@ def test_full_accounting_import_and_rollback(seeded: dict[str, str]) -> None:
         assert s.scalar(select(User.is_placeholder).where(User.full_name == "Erin Newbie")) is True
     # The merged "updates" cell became two updates.
     assert any(r["comment_count"] == 2 for r in items)
-    assert any(r["last_comment"] and r["last_comment"]["body"] == "review completed" for r in items)
+    assert any(r["last_comment"] and r["last_comment"]["body"] == "@Alice Partner 客户已付款" for r in items)
 
     # Re-running the same import updates instead of duplicating.
     rid2 = _create_run(ws, boards(ws)["Financials & Tax Return"], "accounting_export_gbk.csv")

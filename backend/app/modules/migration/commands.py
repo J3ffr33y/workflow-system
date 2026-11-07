@@ -41,8 +41,8 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     # Exports merge a row's updates into one cell with ", "; import them as
     # separate updates (see migration.comments for the rule).
     "split_comments": True,
-    # Order of the merged updates in the cell; decides which is oldest.
-    "comments_newest_first": False,
+    # The old system lists the newest update first (confirmed by Jeffrey 2026-11-07).
+    "comments_newest_first": True,
 }
 
 
@@ -678,7 +678,7 @@ class SplitImportedComments(Command):
     permission = P_MIGRATION_RUN
 
     run_id: uuid.UUID
-    newest_first: bool = False
+    newest_first: bool = True
 
 
 @handles(SplitImportedComments)

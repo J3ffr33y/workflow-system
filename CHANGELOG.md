@@ -9,8 +9,11 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
   and other mirror columns save to the client (or its primary entity / contact), so the
   client page and every board show the same value. New command `clients.set_linked_value`.
 - Imports split a cell of merged updates (joined with ", " by the old export) into
-  separate updates. Earlier imports get a preview and a "Split updates" action on the run
+  separate updates (the first one in the cell is taken as the newest). Earlier imports get a preview and a "Split updates" action on the run
   page (`migration.split_comments`, undoable; removed by rolling back the run).
+
+- Clicking "Last Updated" (or "Created") on a board opens the item's change history:
+  who changed what, including client facts (ABN, State...) changed since the item existed.
 
 ### Changed
 - Data migration run page is a step-by-step wizard: map columns, match values, dry-run

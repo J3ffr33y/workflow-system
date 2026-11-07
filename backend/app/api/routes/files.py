@@ -185,7 +185,7 @@ def migration_run(run_id: uuid.UUID, actor: CurrentActor, s: ReadDB) -> dict[str
 
 @router.get("/migration/runs/{run_id}/comment-split")
 def migration_comment_split(
-    run_id: uuid.UUID, actor: CurrentActor, s: ReadDB, newest_first: bool = False
+    run_id: uuid.UUID, actor: CurrentActor, s: ReadDB, newest_first: bool = True
 ) -> dict[str, Any]:
     return migration_q.comment_split_preview(s, actor, run_id, newest_first=newest_first)
 
