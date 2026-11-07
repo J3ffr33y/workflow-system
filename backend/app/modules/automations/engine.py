@@ -10,7 +10,7 @@ from app.core.config import get_settings
 from app.core.db import read_session
 from app.core.errors import AppError
 from app.core.time import business_today
-from app.modules.automations.commands import ExecuteRule, RecordRunFailure
+from app.modules.automations.commands import ClearStaleHighlight, ExecuteRule, RecordRunFailure
 from app.modules.automations.models import AutomationRule, AutomationRun
 from app.modules.automations.registry import TRIGGERS, DateReached
 from app.modules.items.models import Item
@@ -100,10 +100,20 @@ def on_item_event(ev: EventRecord) -> None:
         _execute(rule, ev.entity_id, source="event", depth=ev.depth + 1, event_id=ev.id)
 
 
+def _is_highlight_rule(rule: AutomationRule) -> bool:
+    return any(a["type"] == "highlight" for a in rule.actions)
+
+
 def run_date_rules() -> str:
-    """Hourly job: fire date-based rules for items whose date has arrived."""
+    """Hourly job: fire date-based rules for items whose date has arrived.
+
+    Ordinary rules fire once per item per date value (pushing the date later
+    re-arms them). Highlight rules describe a state, as in the old Grants
+    board: an item inside the window keeps the highlight (re-applied at most
+    once a day if someone removed it) and loses it once it leaves the window.
+    """
     today = business_today()
-    fired = skipped = 0
+    fired = skipped = cleared = 0
     with read_session() as s:
         rules = list(
             s.scalars(
@@ -113,6 +123,7 @@ def run_date_rules() -> str:
             )
         )
         work: list[tuple[AutomationRule, uuid.UUID, str]] = []
+        stale: list[tuple[AutomationRule, uuid.UUID]] = []
         for rule in rules:
             if rule.trigger.get("type") != DateReached.type:
                 continue
@@ -129,18 +140,43 @@ def run_date_rules() -> str:
                 q = q.where(Item.board_id.in_([uuid.UUID(b) for b in rule.board_ids]))
             if rule.conditions:
                 q = q.where(compile_filter(rule.conditions, qc.ref))
-            for item_id, value in s.execute(q.with_only_columns(Item.id, ref.typed)):
-                # Once per item per date value: pushing the date later re-arms the rule.
-                key = f"{rule.id}:{item_id}:{value}"
+            highlight = _is_highlight_rule(rule)
+            matching: set[uuid.UUID] = set()
+            for item_id, value, owner in s.execute(
+                q.with_only_columns(Item.id, ref.typed, Item.highlight_rule_id)
+            ):
+                matching.add(item_id)
+                if highlight:
+                    if owner == rule.id:
+                        skipped += 1
+                        continue
+                    key = f"{rule.id}:{item_id}:{value}:{today.isoformat()}"
+                else:
+                    key = f"{rule.id}:{item_id}:{value}"
                 if s.scalar(select(AutomationRun.id).where(AutomationRun.dedupe_key == key)):
                     skipped += 1
                     continue
                 work.append((rule, item_id, key))
+            if highlight:
+                owned = s.scalars(select(Item.id).where(Item.highlight_rule_id == rule.id))
+                stale.extend((rule, iid) for iid in owned if iid not in matching)
     for rule, item_id, key in work:
         res = _execute(rule, item_id, source="schedule", depth=1, dedupe_key=key)
         if res and res.get("status") == "succeeded":
             fired += 1
-    return f"fired {fired}, already done {skipped}"
+    for rule, item_id in stale:
+        try:
+            res = bus.execute(
+                ClearStaleHighlight(rule_id=rule.id, item_id=item_id),
+                actor=automation_actor(rule),
+                origin=Origin.AUTOMATION,
+            ).result
+        except AppError:
+            log.warning("could not clear highlight of rule %s on item %s", rule.id, item_id)
+            continue
+        if res and res.get("status") == "succeeded":
+            cleared += 1
+    return f"fired {fired}, already done {skipped}, highlights cleared {cleared}"
 
 
 def preview_rule(s: Any, rule: AutomationRule, limit: int = 200) -> list[dict[str, Any]]:

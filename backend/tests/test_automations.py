@@ -62,7 +62,8 @@ def test_status_change_rolls_due_date_by_frequency(seeded: dict[str, str]) -> No
     run(UpdateItemField(item_id=iid, field="status", value="completed"))
     drain()
     r = rows(seeded["accounting"])[0]
-    assert r["due_date"] == "2027-01-28"
+    # The BAS board follows the ATO quarterly table, as the old system did.
+    assert r["due_date"] == "2026-11-25"
     assert r["status"] == "not_started"
     with read_session() as s:
         runs = list(s.scalars(select(AutomationRun)))
@@ -144,3 +145,118 @@ def test_tasks_with_subtasks(seeded: dict[str, str]) -> None:
     assert [t["status"] for t in ts] == ["not_started_yet", "not_started_yet"]
     assert rows(seeded["accounting"])[0]["task_count"] == 2
     assert run(DeleteTask(task_id=parent)) == {"deleted": 2}
+
+
+# --- old Smart Board due-date rules ----------------------------------------------------
+def _roll_rule(ws: uuid.UUID, field: str = "due_date") -> None:
+    run(
+        SaveRule(
+            workspace_id=ws,
+            name="Completed -> roll",
+            trigger=TriggerSpec(type="status_changed", config={"to": ["completed"]}),
+            actions=[ActionSpec(type="advance_date", config={"field": field, "by": "frequency"})],
+        )
+    )
+
+
+def _complete(board: str, seeded: dict[str, str], **values: Any) -> dict[str, Any]:
+    b = uuid.UUID(boards(seeded["accounting"])[board])
+    iid = uuid.UUID(
+        run(CreateItem(board_id=b, values={"name": f"{board} item", "client": _client(), **values}))["id"]
+    )
+    run(UpdateItemField(item_id=iid, field="status", value="completed"))
+    drain()
+    return next(r for r in rows(seeded["accounting"]) if r["id"] == str(iid))
+
+
+def test_month_end_due_date_stays_at_month_end(seeded: dict[str, str]) -> None:
+    _roll_rule(uuid.UUID(seeded["accounting"]))
+    r = _complete("Bookkeeping", seeded, due_date="2026-04-30", frequency="monthly")
+    assert r["due_date"] == "2026-05-31"
+
+
+def test_quarterly_on_plain_board_adds_three_months(seeded: dict[str, str]) -> None:
+    _roll_rule(uuid.UUID(seeded["accounting"]))
+    r = _complete("Bookkeeping", seeded, due_date="2026-10-28", frequency="quarterly")
+    assert r["due_date"] == "2027-01-28"
+
+
+def test_quarterly_bas_stops_at_end_of_table(seeded: dict[str, str]) -> None:
+    _roll_rule(uuid.UUID(seeded["accounting"]))
+    r = _complete("BAS", seeded, due_date="2027-05-25", frequency="quarterly")
+    assert r["due_date"] == "2027-05-25"
+    with read_session() as s:
+        run_ = s.scalars(select(AutomationRun)).one()
+    assert "cannot go beyond FY 2026-27 Q3" in run_.detail["actions"][0]["result"]
+
+
+def test_quarterly_table_is_editable(seeded: dict[str, str]) -> None:
+    from app.modules.workspaces.commands import UpdateWorkspace
+
+    ws = uuid.UUID(seeded["accounting"])
+    run(UpdateWorkspace(workspace_id=ws, settings={"ato_quarterly_due_dates": [
+        {"label": "FY 2026-27 Q4", "due_date": "2027-08-25"},
+        {"label": "bad row", "due_date": "not a date"},
+    ]}))  # fmt: skip
+    _roll_rule(ws)
+    r = _complete("BAS", seeded, due_date="2027-05-25", frequency="quarterly")
+    assert r["due_date"] == "2027-08-25"
+
+
+def test_monthly_ias_skips_bas_quarter_months(seeded: dict[str, str]) -> None:
+    _roll_rule(uuid.UUID(seeded["accounting"]))
+    # 21 June + 1 month = 21 July, a BAS month, so it moves on to 21 August.
+    r = _complete("IAS", seeded, due_date="2026-06-21", frequency="monthly")
+    assert r["due_date"] == "2026-08-21"
+    # Same rule on a board without it: plain one month.
+    r = _complete("Bookkeeping", seeded, due_date="2026-06-21", frequency="monthly")
+    assert r["due_date"] == "2026-07-21"
+
+
+def test_monthly_ias_target_month_skips_bas_months(seeded: dict[str, str]) -> None:
+    _roll_rule(uuid.UUID(seeded["accounting"]), field="target_month")
+    r = _complete("IAS", seeded, target_month=9, frequency="monthly")
+    assert r["target_month"] == 11  # October is a BAS month
+
+
+def test_unknown_board_due_date_rule_rejected(seeded: dict[str, str]) -> None:
+    from app.core.errors import ValidationFailed
+    from app.modules.workspaces.commands import UpdateBoard
+
+    b = uuid.UUID(boards(seeded["accounting"])["ITR"])
+    with pytest.raises(ValidationFailed):
+        run(UpdateBoard(board_id=b, settings={"due_date_rules": ["made_up"]}))
+
+
+def test_highlight_combined_lead_time_and_auto_clear(seeded: dict[str, str]) -> None:
+    ws = uuid.UUID(seeded["grants"])
+    run(
+        SaveRule(
+            workspace_id=ws,
+            name="AP due soon",
+            trigger=TriggerSpec(
+                type="date_reached",
+                config={
+                    "field": "ap_submit_date",
+                    "offset": {"months": 1, "weeks": 1, "direction": "before"},
+                },
+            ),
+            actions=[ActionSpec(type="highlight", config={"color": "red"})],
+        )
+    )
+    b = uuid.UUID(boards(seeded["grants"])["FY 2026"])
+    iid = uuid.UUID(
+        run(
+            CreateItem(board_id=b, values={"name": "ap", "client": _client(), "ap_submit_date": "2026-11-18"})
+        )["id"]
+    )
+    set_clock(datetime(2026, 10, 10, 1, 0, tzinfo=UTC))  # 1 month 1 week before = 11 Oct
+    assert run_date_rules().startswith("fired 0")
+    set_clock(datetime(2026, 10, 11, 1, 0, tzinfo=UTC))
+    assert run_date_rules().startswith("fired 1")
+    assert rows(seeded["grants"])[0]["highlight_color"] == "red"
+    # Date pushed out of the window: the rule's own highlight goes away.
+    run(UpdateItemField(item_id=iid, field="ap_submit_date", value="2027-03-01"))
+    drain()
+    assert run_date_rules().endswith("highlights cleared 1")
+    assert rows(seeded["grants"])[0]["highlight_color"] is None
