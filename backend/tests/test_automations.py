@@ -162,7 +162,16 @@ def _roll_rule(ws: uuid.UUID, field: str = "due_date") -> None:
 def _complete(board: str, seeded: dict[str, str], **values: Any) -> dict[str, Any]:
     b = uuid.UUID(boards(seeded["accounting"])[board])
     iid = uuid.UUID(
-        run(CreateItem(board_id=b, values={"name": f"{board} item", "client": _client(), **values}))["id"]
+        run(
+            CreateItem(
+                board_id=b,
+                values={
+                    "name": f"{board} item",
+                    "client": run(CreateClient(name=f"Client {uuid.uuid4()}"))["id"],
+                    **values,
+                },
+            )
+        )["id"]
     )
     run(UpdateItemField(item_id=iid, field="status", value="completed"))
     drain()
@@ -216,7 +225,7 @@ def test_monthly_ias_skips_bas_quarter_months(seeded: dict[str, str]) -> None:
 def test_monthly_ias_target_month_skips_bas_months(seeded: dict[str, str]) -> None:
     _roll_rule(uuid.UUID(seeded["accounting"]), field="target_month")
     r = _complete("IAS", seeded, target_month=9, frequency="monthly")
-    assert r["target_month"] == 11  # October is a BAS month
+    assert r["data"]["target_month"] == 11  # October is a BAS month
 
 
 def test_unknown_board_due_date_rule_rejected(seeded: dict[str, str]) -> None:
