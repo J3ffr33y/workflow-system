@@ -21,11 +21,12 @@ from app.modules.items.models import Item
 from app.modules.items.service import ItemWriter
 from app.modules.migration.mapping import EMPTY, NEW, MappingContext, Target, distinct_values, render_name
 from app.modules.migration.models import ExternalRef, MigrationRow, MigrationRun
+from app.modules.tasks.models import Task
 from app.modules.workspaces.commands import slugify
 from app.modules.workspaces.models import Board, FieldDefinition, LookupList, LookupValue, Status, Workspace
 from app.platform.commands import Command, CommandContext, handles
 from app.platform.fields.types import FieldValueError, clean_text
-from app.platform.permissions import P_MIGRATION_RUN
+from app.platform.permissions import P_CLIENTS_WRITE, P_ITEMS_UPDATE, P_MIGRATION_RUN, P_TASKS_WRITE
 
 DEFAULT_OPTIONS: dict[str, Any] = {
     "name_template": "{client} - {board}",
@@ -644,3 +645,61 @@ def rollback_run(ctx: CommandContext, cmd: RollbackRun) -> dict[str, Any]:
     result = ctx.run(RevertChanges(batch_id=run.batch_id))
     run.status = "rolled_back"
     return result  # type: ignore[no-any-return]
+
+
+# --- external IDs for integrations ---------------------------------------------
+# Integrations (Xero, mail threads, shared drive files …) keep "their ID ↔ our
+# record" here, the same table migrations use, so a sync can be re-run without
+# creating duplicates.
+LINKABLE = {"item": Item, "task": Task, "client": Client, "client_entity": ClientEntity, "contact": Contact}
+
+
+def _authorize_link(ctx: CommandContext, entity_type: str, entity_id: uuid.UUID) -> None:
+    model = LINKABLE.get(entity_type)
+    if model is None:
+        raise ValidationFailed(f"cannot link {entity_type}", code="bad_entity_type")
+    obj = ctx.session.get(model, entity_id)
+    if obj is None:
+        raise NotFound(f"{entity_type} not found")
+    if isinstance(obj, (Item, Task)):
+        perm = P_ITEMS_UPDATE if isinstance(obj, Item) else P_TASKS_WRITE
+        ctx.authorize(perm, obj.workspace_id)
+    else:
+        ctx.authorize(P_CLIENTS_WRITE, None)
+
+
+class LinkExternalRef(Command):
+    """Record that ``system/external_type/external_id`` is this record. Re-linking
+    the same external ID to another record moves the link."""
+
+    command_name = "external_refs.link"
+    permission = P_ITEMS_UPDATE
+
+    system: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9_]+$")
+    external_type: str = Field(min_length=1, max_length=64)
+    external_id: str = Field(min_length=1, max_length=300)
+    entity_type: str
+    entity_id: uuid.UUID
+
+
+@handles(LinkExternalRef)
+def link_external_ref(ctx: CommandContext, cmd: LinkExternalRef) -> dict[str, str]:
+    _authorize_link(ctx, cmd.entity_type, cmd.entity_id)
+    s = ctx.session
+    ref = s.scalar(
+        select(ExternalRef).where(
+            ExternalRef.system == cmd.system,
+            ExternalRef.external_type == cmd.external_type,
+            ExternalRef.external_id == cmd.external_id,
+        )
+    )
+    if ref is None:
+        ref = ExternalRef(system=cmd.system, external_type=cmd.external_type, external_id=cmd.external_id)
+        s.add(ref)
+    elif (ref.entity_type, ref.entity_id) != (cmd.entity_type, cmd.entity_id):
+        # Moving a link away from a record needs rights on that record too.
+        _authorize_link(ctx, ref.entity_type, ref.entity_id)
+    ref.entity_type = cmd.entity_type
+    ref.entity_id = cmd.entity_id
+    s.flush()
+    return {"id": str(ref.id)}

@@ -3,11 +3,11 @@ from typing import Any
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
 
-from app.api.deps import CurrentSession, ReadDB
+from app.api.deps import CurrentPrincipal, CurrentSession, ReadDB
 from app.core.config import get_settings
 from app.core.errors import NotAuthenticated
 from app.modules.identity.commands import Login, Logout
-from app.modules.identity.queries import user_summary
+from app.modules.identity.queries import list_api_tokens, user_summary
 from app.modules.workspaces.queries import visible_workspaces
 from app.platform.commands import Origin, bus
 from app.platform.permissions import Actor, ActorKind
@@ -78,3 +78,27 @@ def me(info: CurrentSession, s: ReadDB) -> dict[str, Any]:
             for w in visible_workspaces(s, actor)
         ],
     }
+
+
+@router.get("/whoami")
+def whoami(p: CurrentPrincipal, s: ReadDB) -> dict[str, Any]:
+    """Who the caller is, for cookie sessions and API tokens alike (scripts use
+    this to check a token works)."""
+    actor = p.actor
+    return {
+        "user_id": str(actor.user_id) if actor.user_id else None,
+        "display": actor.display,
+        "via": p.via,
+        "read_only": p.read_only,
+        "is_superadmin": actor.is_superadmin,
+        "workspaces": [
+            {"id": str(w.id), "key": w.key, "permissions": sorted(actor.permissions_in(w.id))}
+            for w in visible_workspaces(s, actor)
+        ],
+    }
+
+
+@router.get("/api-tokens")
+def api_tokens(info: CurrentSession, s: ReadDB) -> list[dict[str, Any]]:
+    """The caller's own API tokens (never the token values)."""
+    return list_api_tokens(s, info.user.id)

@@ -169,6 +169,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/whoami": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whoami
+         * @description Who the caller is, for cookie sessions and API tokens alike (scripts use
+         *     this to check a token works).
+         */
+        get: operations["whoami_api_auth_whoami_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/api-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Tokens
+         * @description The caller's own API tokens (never the token values).
+         */
+        get: operations["api_tokens_api_auth_api_tokens_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workspaces": {
         parameters: {
             query?: never;
@@ -842,6 +883,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Event Catalog
+         * @description Event type patterns a webhook can subscribe to.
+         */
+        get: operations["event_catalog_api_integrations_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Webhooks */
+        get: operations["webhooks_api_integrations_webhooks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/webhooks/{webhook_id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Webhook Deliveries */
+        get: operations["webhook_deliveries_api_integrations_webhooks__webhook_id__deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/external-refs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** External Refs */
+        get: operations["external_refs_api_integrations_external_refs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/commands/activity.revert": {
         parameters: {
             query?: never;
@@ -1216,6 +1328,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/commands/external_refs.link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record that ``system/external_type/external_id`` is this record. Re-linking */
+        post: operations["cmd_external_refs_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/commands/fields.create": {
         parameters: {
             query?: never;
@@ -1301,6 +1430,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/commands/identity.create_api_token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a personal API token. The token is returned once and never again. */
+        post: operations["cmd_identity_create_api_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/commands/identity.create_user": {
         parameters: {
             query?: never;
@@ -1312,6 +1458,23 @@ export interface paths {
         put?: never;
         /** identity.create_user */
         post: operations["cmd_identity_create_user"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/commands/identity.revoke_api_token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke one of your own tokens (superadmins: anyone's). */
+        post: operations["cmd_identity_revoke_api_token"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1363,6 +1526,57 @@ export interface paths {
         put?: never;
         /** identity.update_user */
         post: operations["cmd_identity_update_user"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/commands/integrations.delete_webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** integrations.delete_webhook */
+        post: operations["cmd_integrations_delete_webhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/commands/integrations.rotate_webhook_secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue a new signing secret (returned once). The old one stops working */
+        post: operations["cmd_integrations_rotate_webhook_secret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/commands/integrations.save_webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create (webhook_id None) or update a webhook endpoint. On create the */
+        post: operations["cmd_integrations_save_webhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2483,6 +2697,24 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /**
+         * CreateApiToken
+         * @description Create a personal API token. The token is returned once and never again.
+         */
+        CreateApiToken: {
+            /** Name */
+            name: string;
+            /**
+             * Expires In Days
+             * @default 90
+             */
+            expires_in_days?: number | null;
+            /**
+             * Read Only
+             * @default false
+             */
+            read_only?: boolean;
+        };
         /** CreateBoard */
         CreateBoard: {
             /**
@@ -2773,6 +3005,14 @@ export interface components {
              */
             view_id: string;
         };
+        /** DeleteWebhook */
+        DeleteWebhook: {
+            /**
+             * Webhook Id
+             * Format: uuid
+             */
+            webhook_id: string;
+        };
         /** EditComment */
         EditComment: {
             /**
@@ -2950,6 +3190,26 @@ export interface components {
             limit?: number;
             /** Client Id */
             client_id?: string | null;
+        };
+        /**
+         * LinkExternalRef
+         * @description Record that ``system/external_type/external_id`` is this record. Re-linking
+         *     the same external ID to another record moves the link.
+         */
+        LinkExternalRef: {
+            /** System */
+            system: string;
+            /** External Type */
+            external_type: string;
+            /** External Id */
+            external_id: string;
+            /** Entity Type */
+            entity_type: string;
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
         };
         /** LockSection */
         LockSection: {
@@ -3152,6 +3412,17 @@ export interface components {
              */
             acknowledge_facts?: boolean;
         };
+        /**
+         * RevokeApiToken
+         * @description Revoke one of your own tokens (superadmins: anyone's).
+         */
+        RevokeApiToken: {
+            /**
+             * Token Id
+             * Format: uuid
+             */
+            token_id: string;
+        };
         /** RollbackRun */
         RollbackRun: {
             /**
@@ -3186,6 +3457,18 @@ export interface components {
              * @default false
              */
             archive_source_items?: boolean;
+        };
+        /**
+         * RotateWebhookSecret
+         * @description Issue a new signing secret (returned once). The old one stops working
+         *     immediately, so update the receiver right after.
+         */
+        RotateWebhookSecret: {
+            /**
+             * Webhook Id
+             * Format: uuid
+             */
+            webhook_id: string;
         };
         /** SaveRule */
         SaveRule: {
@@ -3246,6 +3529,33 @@ export interface components {
              */
             is_default?: boolean;
             config: components["schemas"]["ViewConfig"];
+        };
+        /**
+         * SaveWebhook
+         * @description Create (webhook_id None) or update a webhook endpoint. On create the
+         *     signing secret is returned once.
+         */
+        SaveWebhook: {
+            /** Webhook Id */
+            webhook_id?: string | null;
+            /** Name */
+            name: string;
+            /** Url */
+            url: string;
+            /** Event Types */
+            event_types: string[];
+            /** Workspace Id */
+            workspace_id?: string | null;
+            /**
+             * Include Quiet
+             * @default false
+             */
+            include_quiet?: boolean;
+            /**
+             * Is Enabled
+             * @default true
+             */
+            is_enabled?: boolean;
         };
         /** SetAssessment */
         SetAssessment: {
@@ -4110,6 +4420,50 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    whoami_api_auth_whoami_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    api_tokens_api_auth_api_tokens_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
                 };
             };
         };
@@ -5363,6 +5717,120 @@ export interface operations {
             };
         };
     };
+    event_catalog_api_integrations_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    webhooks_api_integrations_webhooks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+    };
+    webhook_deliveries_api_integrations_webhooks__webhook_id__deliveries_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    external_refs_api_integrations_external_refs_get: {
+        parameters: {
+            query?: {
+                system?: string | null;
+                external_type?: string | null;
+                external_id?: string | null;
+                entity_type?: string | null;
+                entity_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cmd_activity_revert: {
         parameters: {
             query?: never;
@@ -6133,6 +6601,41 @@ export interface operations {
             };
         };
     };
+    cmd_external_refs_link: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkExternalRef"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cmd_fields_create: {
         parameters: {
             query?: never;
@@ -6308,6 +6811,41 @@ export interface operations {
             };
         };
     };
+    cmd_identity_create_api_token: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApiToken"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cmd_identity_create_user: {
         parameters: {
             query?: never;
@@ -6320,6 +6858,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateUser"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cmd_identity_revoke_api_token: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeApiToken"];
             };
         };
         responses: {
@@ -6425,6 +6998,111 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateUser"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cmd_integrations_delete_webhook: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteWebhook"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cmd_integrations_rotate_webhook_secret: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateWebhookSecret"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cmd_integrations_save_webhook: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveWebhook"];
             };
         };
         responses: {

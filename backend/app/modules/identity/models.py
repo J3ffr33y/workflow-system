@@ -58,3 +58,25 @@ class LoginAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     __table_args__ = (Index("ix_login_attempts_email_time", "email", "created_at"),)
+
+
+class ApiToken(IdMixin, Audited, Base):
+    """Personal access token for scripts and integrations (``Authorization:
+    Bearer flow_pat_…``). It acts as its owner through the same command bus,
+    so permissions and audit are identical to the UI. Only the hash is stored;
+    the token itself is shown once, at creation."""
+
+    __tablename__ = "api_tokens"
+    __entity_type__ = "api_token"
+    __audit_exclude__ = frozenset({"token_hash", "created_at"})
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    # First characters of the token, so people can tell their tokens apart.
+    prefix: Mapped[str] = mapped_column(String(20))
+    token_hash: Mapped[str] = mapped_column(String(128), unique=True)
+    # Read-only tokens can call query endpoints but no command.
+    read_only: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    expires_at: Mapped[datetime | None]
+    revoked_at: Mapped[datetime | None]

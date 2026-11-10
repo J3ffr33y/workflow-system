@@ -4,6 +4,19 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
 
 ## [Unreleased]
 
+### Added
+- Personal API tokens (`Authorization: Bearer flow_pat_…`): act as their owner through
+  the same command bus, audit origin `api`, optional read-only, 90-day default expiry,
+  revoked when the owner is deactivated. `GET /api/auth/whoami`, `GET /api/auth/api-tokens`.
+- Webhooks (superadmin): signed JSON POSTs for business events, per-endpoint delivery
+  log and retries (`integrations.*` commands, `/api/integrations/*`).
+- External ID links for integrations: `external_refs.link`, `GET /api/integrations/external-refs`.
+- Field default values (`config.default`), applied when a new item leaves the field out.
+- Docs: `docs/INTEGRATIONS.md`, ADR-0010 (proposed).
+
+### Changed
+- `required_on_create` is now also checked on the server for API-token callers.
+
 ## [0.2.0] - 2026-11-02
 
 ### Added

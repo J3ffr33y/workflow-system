@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_token
 from app.core.time import utcnow
-from app.modules.identity.models import AuthSession, User
+from app.modules.identity.models import ApiToken, AuthSession, User
 from app.modules.workspaces.models import Workspace, WorkspaceMembership
 from app.platform.permissions import Actor, ActorKind, WorkspaceRole
 
@@ -51,6 +51,50 @@ def resolve_session(s: Session, token: str) -> SessionInfo | None:
     return SessionInfo(
         actor=actor_for_user(s, user), user=user, csrf_token=sess.csrf_token, session_id=sess.id
     )
+
+
+@dataclass(frozen=True)
+class TokenInfo:
+    actor: Actor
+    user: User
+    token_id: uuid.UUID
+    read_only: bool
+
+
+def resolve_api_token(s: Session, token: str) -> TokenInfo | None:
+    now = utcnow()
+    row = s.execute(
+        select(ApiToken, User)
+        .join(User, User.id == ApiToken.user_id)
+        .where(
+            ApiToken.token_hash == hash_token(token),
+            ApiToken.revoked_at.is_(None),
+            or_(ApiToken.expires_at.is_(None), ApiToken.expires_at > now),
+            User.is_active.is_(True),
+        )
+    ).first()
+    if row is None:
+        return None
+    tok, user = row
+    return TokenInfo(actor=actor_for_user(s, user), user=user, token_id=tok.id, read_only=tok.read_only)
+
+
+def list_api_tokens(s: Session, user_id: uuid.UUID) -> list[dict[str, Any]]:
+    now = utcnow()
+    rows = s.scalars(select(ApiToken).where(ApiToken.user_id == user_id).order_by(ApiToken.created_at.desc()))
+    return [
+        {
+            "id": str(t.id),
+            "name": t.name,
+            "prefix": t.prefix,
+            "read_only": t.read_only,
+            "created_at": t.created_at.isoformat(),
+            "expires_at": t.expires_at.isoformat() if t.expires_at else None,
+            "revoked_at": t.revoked_at.isoformat() if t.revoked_at else None,
+            "active": t.revoked_at is None and (t.expires_at is None or t.expires_at > now),
+        }
+        for t in rows
+    ]
 
 
 def user_summary(u: User) -> dict[str, Any]:

@@ -248,7 +248,7 @@ manifest = ModuleManifest(
 | 通知渠道 | 站内 → 邮件 → Teams / 微信企业号 |
 | AI 网关（预留） | 所有模型调用只经 `platform/ai_gateway`：数据驻留（澳洲推理档）、客户同意校验、脱敏、计费、留痕；CI 禁止其他模块直接引用模型 SDK |
 | 文件存储（预留） | 抽象接口：本地磁盘 / 澳洲区域 S3 兼容存储 |
-| 对外 API（预留） | 个人 API token + 同一套命令总线，权限和审计完全一致 |
+| 对外 API | 个人 API token + 同一套命令总线，权限和审计完全一致；Webhook 推送业务事件；`external_refs` 做外部 ID 映射（见 [INTEGRATIONS.md](INTEGRATIONS.md)、ADR-0010） |
 
 ## 9. 前端结构
 

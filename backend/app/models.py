@@ -4,7 +4,8 @@ from app.modules.automations.models import AutomationRule, AutomationRun
 from app.modules.clients.models import Client, ClientEntity, Contact
 from app.modules.collaboration.models import Comment, Notification
 from app.modules.files.models import FileVersion, StoredFile
-from app.modules.identity.models import AuthSession, LoginAttempt, User
+from app.modules.identity.models import ApiToken, AuthSession, LoginAttempt, User
+from app.modules.integrations.models import WebhookDelivery, WebhookEndpoint
 from app.modules.items.models import Item, ItemMember
 from app.modules.migration.models import ExternalRef, MigrationRow, MigrationRun
 from app.modules.rdti.models import (
@@ -37,6 +38,7 @@ from app.platform.jobs.models import JobRun
 
 __all__ = [
     "AiCall",
+    "ApiToken",
     "AuditEntry",
     "AuthSession",
     "AutomationRule",
@@ -76,6 +78,8 @@ __all__ = [
     "Task",
     "TaskMember",
     "User",
+    "WebhookDelivery",
+    "WebhookEndpoint",
     "Workspace",
     "WorkspaceMembership",
 ]  # fmt: skip
