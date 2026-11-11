@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.errors import NotFound, ValidationFailed
 from app.core.time import business_today, utcnow
@@ -358,7 +358,15 @@ class RolloverItems(Command):
     archive_source_items: bool = False
 
 
-_SUFFIX_RE = re.compile(r"\s*(\(Roll Over\)|\(\d+\)|FY\s?\d{2,4}|\d{4}\s?-\s?\d{4}|\d{4})\s*$", re.IGNORECASE)
+# Period markers removed before the new one is added, so repeated rollovers do not
+# stack suffixes. Covers the old Smart Board tags ("(FY 2026)", "(2025-26)",
+# "(Roll Over 2)") found in imported names, and bare markers ("FY 2026",
+# "2025-2026") typed by hand.
+_SUFFIX_RE = re.compile(
+    r"\s*(\(\s*roll\s*over(?:\s+\d+)?\s*\)|\((?:(?:FY|CY|Grants)\s*\d{2,4}|\d{4}(?:\s?-\s?\d{2,4})?)\)"
+    r"|\(\d+\)|FY\s?\d{2,4}|\d{4}\s?-\s?\d{4}|\d{4})\s*$",
+    re.IGNORECASE,
+)
 
 
 def _strip_suffixes(name: str, extra: list[str]) -> str:
@@ -367,9 +375,38 @@ def _strip_suffixes(name: str, extra: list[str]) -> str:
         prev = name
         name = _SUFFIX_RE.sub("", name).rstrip(" -\u2013")
         for e in extra:
-            if e and name.lower().endswith(e.lower()):
-                name = name[: -len(e)].rstrip(" -\u2013")
+            for tag in (f"({e})", e):
+                if e and name.lower().endswith(tag.lower()):
+                    name = name[: -len(tag)].rstrip(" -\u2013")
     return name.strip()
+
+
+def _unique_name(ctx: CommandContext, ws_id: uuid.UUID, base: str, tag: str) -> str:
+    """``base (tag)``, with a counter folded into the tag on a clash.
+
+    The old system kept project names unique: "Acme (Roll Over)" became
+    "Acme (Roll Over 2)", "Acme (FY 2027)" became "Acme (FY 2027 2)".
+    """
+
+    def taken(name: str) -> bool:
+        return bool(
+            ctx.session.scalar(
+                select(func.count())
+                .select_from(Item)
+                .where(Item.workspace_id == ws_id, Item.name == name, Item.deleted_at.is_(None))
+            )
+        )
+
+    inner = tag[1:-1].strip() if tag.startswith("(") and tag.endswith(")") else tag
+    first = f"{base} ({inner})".strip() if inner else base
+    if not taken(first):
+        return first
+    n = 2
+    while True:
+        cand = f"{base} ({inner} {n})".strip() if inner else f"{base} ({n})"
+        if not taken(cand):
+            return cand
+        n += 1
 
 
 def default_rollover_target(ctx: CommandContext, ws: Workspace, board: Board) -> Board:
@@ -446,8 +483,8 @@ def rollover_items(ctx: CommandContext, cmd: RolloverItems) -> dict[str, Any]:
         elif fy_label and src.fiscal_year_id and str(src.fiscal_year_id) != values.get("fiscal_year"):
             suffix = fy_label
         else:
-            suffix = "(Roll Over)"
-        values["name"] = f"{base} {suffix}".strip()
+            suffix = "Roll Over"
+        values["name"] = _unique_name(ctx, ws.id, base, suffix)
 
         try:
             with ctx.savepoint():

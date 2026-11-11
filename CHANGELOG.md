@@ -11,7 +11,6 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
 - Imports split a cell of merged updates (joined with ", " by the old export) into
   separate updates (the first one in the cell is taken as the newest). Earlier imports get a preview and a "Split updates" action on the run
   page (`migration.split_comments`, undoable; removed by rolling back the run).
-
 - Clicking "Last Updated" (or "Created") on a board opens the item's change history:
   who changed what, including client facts (ABN, State...) changed since the item existed.
 
@@ -20,6 +19,10 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
   check, import, with Back / Next and a clear note that nothing is written before import.
 - Mirror columns use the client field's own type (State shows as a dropdown with labels)
   and fall back to the client's primary entity when an item has none.
+- Roll over names follow the old Smart Board: the new period goes in brackets
+  ("Acme (FY 2027)", "Acme (Roll Over)"), old tags from imported names are replaced
+  instead of stacked, and a clash gets a counter inside the brackets ("Acme (Roll Over 2)").
+- "Add a year" on roll over keeps month-end dates at month end (28 Feb 2027 -> 29 Feb 2028).
 
 ### Fixed
 - Picking an option or date with the mouse in a board cell editor did not save.
