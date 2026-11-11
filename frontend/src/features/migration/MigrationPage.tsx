@@ -91,10 +91,30 @@ export function MigrationPage() {
   return (
     <Page
       title="Data migration"
-      subtitle="Bring items from the old ERPNext system into this product line. Nothing is written until you confirm the import, and every import can be rolled back."
+      subtitle="Bring items from the old ERPNext system into this product line in four steps. Nothing is written until the last step, and every import can be rolled back."
     >
       <Stack maw={1000} gap="lg">
+        <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+          {[
+            ["1. Map columns", "Tell us which field each column of the file goes to."],
+            ["2. Match values", "Decide what unknown statuses, options and names mean."],
+            ["3. Check", "A dry run over every row. Nothing is written yet."],
+            ["4. Import", "Write to the board. Can be rolled back as a whole."],
+          ].map(([t, d]) => (
+            <Paper key={t} withBorder p="sm">
+              <Text size="sm" fw={600}>
+                {t}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {d}
+              </Text>
+            </Paper>
+          ))}
+        </SimpleGrid>
         <Paper withBorder p="md">
+          <Text fw={600} mb="sm">
+            Start a new import
+          </Text>
           <Select
             label="Import into board"
             w={320}

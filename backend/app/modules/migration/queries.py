@@ -146,3 +146,35 @@ def find_external_refs(
         }
         for r in s.scalars(q)
     ]
+
+
+def comment_split_preview(
+    s: Session, actor: Actor, run_id: uuid.UUID, newest_first: bool = True, limit: int = 20
+) -> dict[str, Any]:
+    """What migration.split_comments would do, without doing it."""
+    from app.modules.items.models import Item
+    from app.modules.migration.comments import chronological, imported_comments, split_merged_comments
+
+    r = s.get(MigrationRun, run_id)
+    if r is None:
+        raise NotFound("run not found")
+    require_workspace(s, actor, r.workspace_id, P_MIGRATION_RUN)
+    comments = imported_comments(s, r) if r.batch_id else []
+    changes = []
+    for c in comments:
+        pieces = split_merged_comments(c.body)
+        if len(pieces) > 1:
+            changes.append((c, chronological(pieces, newest_first)))
+    names = {
+        i.id: i.name
+        for i in s.scalars(select(Item).where(Item.id.in_({c.entity_id for c, _ in changes[:limit]})))
+    }
+    return {
+        "checked": len(comments),
+        "to_split": len(changes),
+        "new_comments": sum(len(p) for _, p in changes),
+        "already_split": len((r.stats or {}).get("comment_splits", [])),
+        "examples": [
+            {"item": names.get(c.entity_id, ""), "before": c.body, "after": p} for c, p in changes[:limit]
+        ],
+    }

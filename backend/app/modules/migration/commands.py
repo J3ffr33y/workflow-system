@@ -4,21 +4,25 @@ Every step is a command, so a run leaves a complete audit trail, and the
 import itself shares one batch id: rolling back a run is "revert batch".
 """
 
+import contextlib
 import re
 import uuid
 from collections import Counter
+from datetime import timedelta
 from typing import Any
 
 from pydantic import Field
 from sqlalchemy import func, insert, select
 
 from app.core.errors import NotFound, ValidationFailed
+from app.core.time import utcnow
 from app.modules.activity.commands import RevertChanges
 from app.modules.clients.models import Client, ClientEntity, Contact
 from app.modules.collaboration.models import Comment
 from app.modules.identity.models import User
 from app.modules.items.models import Item
 from app.modules.items.service import ItemWriter
+from app.modules.migration.comments import chronological, imported_comments, split_merged_comments
 from app.modules.migration.mapping import EMPTY, NEW, MappingContext, Target, distinct_values, render_name
 from app.modules.migration.models import ExternalRef, MigrationRow, MigrationRun
 from app.modules.tasks.models import Task
@@ -35,6 +39,11 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "client_fields": "fill_empty",  # fill_empty | overwrite
     "comment_author": "Imported",
     "update_existing_items": True,
+    # Exports merge a row's updates into one cell with ", "; import them as
+    # separate updates (see migration.comments for the rule).
+    "split_comments": True,
+    # The old system lists the newest update first (confirmed by Jeffrey 2026-11-07).
+    "comments_newest_first": True,
 }
 
 
@@ -188,9 +197,13 @@ def plan_row(
             if isinstance(value, list):
                 plan["comments"] += [c for c in value if c.get("body")]
             else:
-                text = clean_text(value)
-                if text:
-                    plan["comments"].append({"body": text})
+                opts = {**DEFAULT_OPTIONS, **mapping.get("options", {})}
+                if opts["split_comments"]:
+                    pieces = chronological(split_merged_comments(value), opts["comments_newest_first"])
+                else:
+                    text = clean_text(value)
+                    pieces = [text] if text else []
+                plan["comments"] += [{"body": p} for p in pieces]
             continue
         tg = mctx.targets.get(tkey)
         if tg is None:
@@ -422,9 +435,12 @@ def import_row(ctx: CommandContext, cmd: ImportRow) -> dict[str, Any]:
                           entity_type="item", entity_id=item.id))  # fmt: skip
     else:
         ref.entity_id = item.id
-    for c in plan["comments"]:
+    base = utcnow()
+    for n, c in enumerate(plan["comments"]):
         s.add(
             Comment(
+                # Same transaction, same now(): space them out so they list in order.
+                created_at=base + timedelta(microseconds=n),
                 entity_type="item",
                 entity_id=item.id,
                 workspace_id=item.workspace_id,
@@ -642,6 +658,10 @@ def rollback_run(ctx: CommandContext, cmd: RollbackRun) -> dict[str, Any]:
     if run.status not in ("committed", "committed_with_errors"):
         raise ValidationFailed("only imported runs can be rolled back")
     ctx.quiet = True  # reverting an import must not fire automations
+    # Comment splits ran as their own commands, outside the import batch.
+    for command_id in reversed((run.stats or {}).get("comment_splits", [])):
+        with contextlib.suppress(NotFound):  # already undone from the activity page
+            ctx.run(RevertChanges(command_id=uuid.UUID(command_id)))
     result = ctx.run(RevertChanges(batch_id=run.batch_id))
     run.status = "rolled_back"
     return result  # type: ignore[no-any-return]
@@ -703,3 +723,52 @@ def link_external_ref(ctx: CommandContext, cmd: LinkExternalRef) -> dict[str, st
     ref.entity_id = cmd.entity_id
     s.flush()
     return {"id": str(ref.id)}
+
+
+# --- split merged updates of an earlier import ------------------------------------------------
+class SplitImportedComments(Command):
+    """Turn one imported update holding several merged ones into separate updates.
+
+    The original is soft-deleted and the pieces are added in its place, all
+    in one command, so the activity page (or rolling back the run) undoes it.
+    """
+
+    command_name = "migration.split_comments"
+    permission = P_MIGRATION_RUN
+
+    run_id: uuid.UUID
+    newest_first: bool = True
+
+
+@handles(SplitImportedComments)
+def split_imported_comments(ctx: CommandContext, cmd: SplitImportedComments) -> dict[str, int]:
+    run = _run(ctx, cmd.run_id)
+    if run.status not in ("committed", "committed_with_errors"):
+        raise ValidationFailed("only imported runs can be changed")
+    s = ctx.session
+    split = added = 0
+    for c in imported_comments(s, run):
+        pieces = split_merged_comments(c.body)
+        if len(pieces) < 2:
+            continue
+        for n, body in enumerate(chronological(pieces, cmd.newest_first)):
+            s.add(
+                Comment(
+                    created_at=c.created_at + timedelta(microseconds=n),
+                    entity_type=c.entity_type,
+                    entity_id=c.entity_id,
+                    workspace_id=c.workspace_id,
+                    author_id=c.author_id,
+                    author_display=c.author_display,
+                    body=body,
+                    mentions=list(c.mentions or []),
+                )
+            )
+        c.deleted_at = utcnow()
+        split += 1
+        added += len(pieces)
+    if split:
+        stats = dict(run.stats or {})
+        stats["comment_splits"] = [*stats.get("comment_splits", []), str(ctx.command_id)]
+        run.stats = stats
+    return {"split": split, "created": added}

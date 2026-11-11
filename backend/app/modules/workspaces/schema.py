@@ -5,7 +5,8 @@ Four sources, one shape (``ColumnSpec``):
 * core    real columns on ``items`` (name, client, status, due_date...)
 * data    custom field definitions, values in ``items.data``
 * role    team members with a role, e.g. ``role.preparer``
-* mirror  read-only view of a client / entity attribute
+* mirror  a client / entity / contact attribute shown (and edited) on the board;
+          the value lives on that record, so every board and the client page agree
 
 Boards, filters, bulk edit, export, rollover, automations and migration all
 work from this catalog, so they automatically support new fields.
@@ -69,6 +70,44 @@ _CORE: list[tuple[str, str, str, Kind, bool, str]] = [
 CORE_KEYS = {c[0] for c in _CORE}
 RESERVED_PREFIXES = ("role.", "client.", "entity.")
 
+ENTITY_TYPE_OPTIONS = [
+    {"key": "individual", "label": "Individual"},
+    {"key": "company", "label": "Company"},
+    {"key": "partnership", "label": "Partnership"},
+    {"key": "trust", "label": "Trust"},
+    {"key": "smsf", "label": "SMSF"},
+    {"key": "other_incorporated", "label": "Other Incorporated Entity"},
+    {"key": "other", "label": "Other"},
+]
+# Built-in record attributes a mirror column can show and edit, with the
+# field type used to display / edit them. Kept in step with
+# clients.commands.ENTITY_EDITABLE / CONTACT_EDITABLE.
+_LINKED_CORE: dict[str, dict[str, tuple[str, dict[str, Any]]]] = {
+    "entity": {
+        "name": ("text", {}),
+        "abn": ("text", {}),
+        "acn": ("text", {}),
+        "entity_type": ("select", {"options": ENTITY_TYPE_OPTIONS}),
+        "year_end_month": ("month", {}),
+    },
+    "contact": {"name": ("text", {}), "email": ("email", {}), "phone": ("phone", {})},
+}
+
+
+def linked_field_type(
+    defs: dict[tuple[str, str], FieldDefinition], of: str | None, field_path: str
+) -> tuple[str, dict[str, Any]] | None:
+    """Type and config of the record field a mirror column points at, or
+    None when that field cannot be edited from a board."""
+    if of is None:
+        return None
+    if field_path.startswith("data."):
+        fd = defs.get((of, field_path[5:]))
+        if fd is None or fd.type in ("mirror", "period_grid"):
+            return None
+        return fd.type, fd.config or {}
+    return _LINKED_CORE.get(of, {}).get(field_path)
+
 
 def is_reserved_key(key: str) -> bool:
     return key in CORE_KEYS or key.startswith(RESERVED_PREFIXES) or key in {"id", "data", "tasks"}
@@ -115,6 +154,7 @@ def item_columns(s: Session, workspace: Workspace) -> list[ColumnSpec]:
             )
         )
 
+    linked_defs: dict[tuple[str, str], FieldDefinition] | None = None
     for f in s.scalars(
         select(FieldDefinition)
         .where(
@@ -126,7 +166,27 @@ def item_columns(s: Session, workspace: Workspace) -> list[ColumnSpec]:
     ):
         ft = field_types.get(f.type)
         is_mirror = f.type == "mirror"
-        display_type = f.config.get("display_type", "text") if is_mirror else f.type
+        config = f.config
+        editable = ft.editable
+        if is_mirror:
+            if linked_defs is None:
+                linked_defs = {}
+                for d in s.scalars(
+                    select(FieldDefinition).where(
+                        FieldDefinition.entity_kind.in_(("client", "entity", "contact")),
+                        FieldDefinition.is_archived.is_(False),
+                    )
+                ):
+                    # Client fields are shared; this workspace's definition wins a key clash.
+                    if (d.entity_kind, d.key) not in linked_defs or d.workspace_id == workspace.id:
+                        linked_defs[(d.entity_kind, d.key)] = d
+            linked = linked_field_type(linked_defs, f.config.get("of"), f.config.get("field", ""))
+            editable = linked is not None
+            if linked is not None:
+                # Show and edit with the record field's own type, so e.g. State
+                # is a dropdown with labels rather than raw option keys.
+                config = {**f.config, **linked[1], "display_type": linked[0]}
+        display_type = config.get("display_type", "text") if is_mirror else f.type
         kind = (
             field_types.get(display_type).kind if is_mirror and display_type in field_types.types else ft.kind
         )
@@ -139,8 +199,8 @@ def item_columns(s: Session, workspace: Workspace) -> list[ColumnSpec]:
                 type=f.type,
                 source="mirror" if is_mirror else "data",
                 kind=kind.value,
-                config=f.config,
-                editable=ft.editable,
+                config=config,
+                editable=editable,
                 required=f.is_required,
                 group=f.group,
                 position=f.position,

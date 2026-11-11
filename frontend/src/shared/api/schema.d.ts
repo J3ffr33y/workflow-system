@@ -730,6 +730,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/migration/runs/{run_id}/comment-split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Migration Comment Split */
+        get: operations["migration_comment_split_api_migration_runs__run_id__comment_split_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/migration/runs/{run_id}/rows": {
         parameters: {
             query?: never;
@@ -1220,6 +1237,23 @@ export interface paths {
         put?: never;
         /** clients.restore */
         post: operations["cmd_clients_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/commands/clients.set_linked_value": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set one value on a client, its entity or its primary contact. */
+        post: operations["cmd_clients_set_linked_value"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1883,6 +1917,23 @@ export interface paths {
         put?: never;
         /** migration.rollback */
         post: operations["cmd_migration_rollback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/commands/migration.split_comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn one imported update holding several merged ones into separate updates. */
+        post: operations["cmd_migration_split_comments"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3578,6 +3629,29 @@ export interface components {
             rationale?: string;
         };
         /**
+         * SetLinkedValue
+         * @description Set one value on a client, its entity or its primary contact.
+         *
+         *     Boards show client facts through mirror columns; editing such a cell lands
+         *     here so the client record stays the single source of truth and every board
+         *     and the client page see the change.
+         */
+        SetLinkedValue: {
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /** Of */
+            of: string;
+            /** Field */
+            field: string;
+            /** Value */
+            value?: unknown;
+            /** Entity Id */
+            entity_id?: string | null;
+        };
+        /**
          * SetPeriodValue
          * @description Edit one cell of a period grid without touching the other periods, so
          *     two people ticking different months never overwrite each other.
@@ -3614,6 +3688,25 @@ export interface components {
             user_id: string;
             /** Password */
             password: string;
+        };
+        /**
+         * SplitImportedComments
+         * @description Turn one imported update holding several merged ones into separate updates.
+         *
+         *     The original is soft-deleted and the pieces are added in its place, all
+         *     in one command, so the activity page (or rolling back the run) undoes it.
+         */
+        SplitImportedComments: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Newest First
+             * @default true
+             */
+            newest_first?: boolean;
         };
         /**
          * StartCommit
@@ -5401,6 +5494,41 @@ export interface operations {
             };
         };
     };
+    migration_comment_split_api_migration_runs__run_id__comment_split_get: {
+        parameters: {
+            query?: {
+                newest_first?: boolean;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     migration_rows_api_migration_runs__run_id__rows_get: {
         parameters: {
             query?: {
@@ -6368,6 +6496,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RestoreClient"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cmd_clients_set_linked_value: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetLinkedValue"];
             };
         };
         responses: {
@@ -7733,6 +7896,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RollbackRun"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cmd_migration_split_comments: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SplitImportedComments"];
             };
         };
         responses: {

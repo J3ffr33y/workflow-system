@@ -431,3 +431,143 @@ def delete_contact(ctx: CommandContext, cmd: DeleteContact) -> None:
     if ct is None or ct.deleted_at is not None:
         raise NotFound("contact not found")
     ct.deleted_at = utcnow()
+
+
+# --- single linked value (edited from a board's mirror column) ----------------------------
+# Record fields a board may edit through a mirror column. Custom ``data.*``
+# fields are always allowed; they are validated by their field definition.
+ENTITY_EDITABLE = {"name", "abn", "acn", "entity_type", "year_end_month"}
+CONTACT_EDITABLE = {"name", "email", "phone"}
+
+
+class SetLinkedValue(Command):
+    """Set one value on a client, its entity or its primary contact.
+
+    Boards show client facts through mirror columns; editing such a cell lands
+    here so the client record stays the single source of truth and every board
+    and the client page see the change.
+    """
+
+    command_name = "clients.set_linked_value"
+    permission = P_CLIENTS_WRITE
+    scoped = False
+
+    client_id: uuid.UUID
+    of: str  # client | entity | contact
+    field: str
+    value: Any = None
+    # Entity to change; defaults to the client's primary entity.
+    entity_id: uuid.UUID | None = None
+
+
+def primary_entity(ctx: CommandContext, client_id: uuid.UUID) -> ClientEntity | None:
+    return ctx.session.scalar(
+        select(ClientEntity)
+        .where(
+            ClientEntity.client_id == client_id,
+            ClientEntity.deleted_at.is_(None),
+        )
+        .order_by(ClientEntity.is_primary.desc(), ClientEntity.created_at)
+        .limit(1)
+    )
+
+
+def _primary_contact(ctx: CommandContext, client_id: uuid.UUID) -> Contact | None:
+    return ctx.session.scalar(
+        select(Contact)
+        .where(Contact.client_id == client_id, Contact.is_primary.is_(True), Contact.deleted_at.is_(None))
+        .order_by(Contact.created_at.desc())
+        .limit(1)
+    )
+
+
+def _blank(value: Any) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+@handles(SetLinkedValue)
+def set_linked_value(ctx: CommandContext, cmd: SetLinkedValue) -> dict[str, Any]:
+    c = _client(ctx, cmd.client_id)
+    s = ctx.session
+    if cmd.of == "client":
+        if not cmd.field.startswith("data."):
+            raise ValidationFailed(f"client field '{cmd.field}' cannot be edited here", code="read_only")
+        key = cmd.field[5:]
+        c.data = validate_custom_data(ctx, "client", c.data, {key: cmd.value})
+        return {"value": c.data.get(key), "client_id": str(c.id)}
+
+    if cmd.of == "entity":
+        e: ClientEntity | None
+        if cmd.entity_id:
+            e = s.get(ClientEntity, cmd.entity_id)
+            if e is None or e.client_id != c.id or e.deleted_at is not None:
+                raise NotFound("entity not found")
+        else:
+            e = primary_entity(ctx, c.id)
+        if e is None:
+            if _blank(cmd.value):
+                return {"value": None, "client_id": str(c.id)}
+            # Typing an ABN for a client without an entity creates its primary entity.
+            e = ClientEntity(
+                client_id=c.id,
+                name=c.name,
+                entity_type=c.client_type if c.client_type in ENTITY_TYPES else "other",
+                is_primary=True,
+            )
+            s.add(e)
+        if cmd.field.startswith("data."):
+            key = cmd.field[5:]
+            e.data = validate_custom_data(ctx, "entity", e.data, {key: cmd.value})
+            value: Any = e.data.get(key)
+        elif cmd.field not in ENTITY_EDITABLE:
+            raise ValidationFailed(f"entity field '{cmd.field}' cannot be edited here", code="read_only")
+        elif cmd.field == "abn":
+            e.abn = value = _clean_abn(cmd.value)
+        elif cmd.field == "acn":
+            e.acn = value = None if _blank(cmd.value) else str(cmd.value).strip()
+        elif cmd.field == "name":
+            if _blank(cmd.value):
+                raise ValidationFailed("entity name is required", code="required")
+            e.name = value = str(cmd.value).strip()
+        elif cmd.field == "entity_type":
+            if cmd.value not in ENTITY_TYPES:
+                raise ValidationFailed(f"entity_type must be one of {sorted(ENTITY_TYPES)}")
+            e.entity_type = value = cmd.value
+        else:  # year_end_month
+            try:
+                month = None if _blank(cmd.value) else int(cmd.value)
+            except (TypeError, ValueError):
+                raise ValidationFailed("year end must be a month number 1-12") from None
+            if month is not None and not 1 <= month <= 12:
+                raise ValidationFailed("year end must be a month number 1-12")
+            e.year_end_month = value = month
+        s.flush()
+        return {"value": value, "client_id": str(c.id), "entity_id": str(e.id)}
+
+    if cmd.of == "contact":
+        if cmd.field not in CONTACT_EDITABLE:
+            raise ValidationFailed(f"contact field '{cmd.field}' cannot be edited here", code="read_only")
+        ct = _primary_contact(ctx, c.id)
+        text = None if _blank(cmd.value) else str(cmd.value).strip()
+        if ct is None:
+            if text is None:
+                return {"value": None, "client_id": str(c.id)}
+            if cmd.field != "name":
+                raise ValidationFailed(
+                    "this client has no primary contact yet; enter the contact name first",
+                    code="no_contact",
+                )
+            ct = Contact(client_id=c.id, name=text, is_primary=True)
+            s.add(ct)
+        elif cmd.field == "name":
+            if text is None:
+                raise ValidationFailed("contact name is required", code="required")
+            ct.name = text
+        elif cmd.field == "email":
+            ct.email = text.lower() if text else None
+        else:
+            ct.phone = text
+        s.flush()
+        return {"value": getattr(ct, cmd.field), "client_id": str(c.id)}
+
+    raise ValidationFailed("of must be client, entity or contact", code="bad_config")
