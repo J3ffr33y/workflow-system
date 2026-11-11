@@ -21,6 +21,7 @@ export interface CellContext {
     value: any,
     expected: any,
     patch: (r: ItemRow) => ItemRow,
+    sharedByClient?: boolean,
   ) => Promise<void>;
 }
 
@@ -36,7 +37,9 @@ export function EditableCell(props: Props) {
   if (!row) return null;
   const value = cellValue(row, col);
   const type = displayType(col);
-  const editable = cc.canEdit && col.editable && col.source !== "mirror" && !row.is_archived;
+  // Mirror columns (client facts such as ABN or State) are editable too: the
+  // server writes them to the client, so every board and the client page agree.
+  const editable = cc.canEdit && col.editable && !row.is_archived;
 
   if (col.type === "status") {
     return (
@@ -48,13 +51,22 @@ export function EditableCell(props: Props) {
       />
     );
   }
-  if (col.type === "checkbox" && editable) {
+  if (type === "checkbox" && editable) {
     return (
       <button
         type="button"
         className={classes.checkCell}
         aria-label={`${col.label}: ${value ? "yes" : "no"}`}
-        onClick={() => cc.update(row, col.key, !value, value ?? false, (r) => applyValue(r, col, !value))}
+        onClick={() =>
+          cc.update(
+            row,
+            col.key,
+            !value,
+            value ?? false,
+            (r) => applyValue(r, col, !value),
+            col.source === "mirror",
+          )
+        }
       >
         {renderValue(type, value, col, cc.ctx, row) ?? <span className={classes.checkEmpty} />}
       </button>
@@ -67,9 +79,13 @@ export function EditableCell(props: Props) {
     <Popover
       opened={editing}
       onChange={(o) => !o && editStore.set(null)}
+      // Option lists and date pickers render in their own portal, outside this
+      // dropdown; Mantine's own outside-click check closed the editor on mousedown
+      // before the option click landed, so picking with the mouse never saved.
+      closeOnClickOutside={false}
       position="bottom-start"
       offset={0}
-      width={col.type === "long_text" ? 420 : col.type === "period_grid" ? 360 : 300}
+      width={type === "long_text" ? 420 : type === "period_grid" ? 360 : 300}
       shadow="lg"
       withinPortal
       trapFocus
@@ -83,7 +99,22 @@ export function EditableCell(props: Props) {
   );
 }
 
+/** Close the cell editor on a click outside it and outside any Mantine portal
+ * (option lists, date pickers) that the editor opened. */
+function useCloseOnOutsideClick() {
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Element | null;
+      if (t?.closest?.("[data-portal]")) return;
+      editStore.set(null);
+    };
+    document.addEventListener("mousedown", onDown, true);
+    return () => document.removeEventListener("mousedown", onDown, true);
+  }, []);
+}
+
 function CellEditor({ row, col, cc }: { row: ItemRow; col: ColumnSpec; cc: CellContext }) {
+  useCloseOnOutsideClick();
   const initial = cellValue(row, col);
   const [draft, setDraft] = useState<any>(initial);
   useEffect(() => setDraft(initial), [initial]);
@@ -91,7 +122,7 @@ function CellEditor({ row, col, cc }: { row: ItemRow; col: ColumnSpec; cc: CellC
   const save = (v: any = draft) => {
     editStore.set(null);
     if (JSON.stringify(v ?? null) === JSON.stringify(initial ?? null)) return;
-    cc.update(row, col.key, v, initial ?? null, (r) => applyValue(r, col, v));
+    cc.update(row, col.key, v, initial ?? null, (r) => applyValue(r, col, v), col.source === "mirror");
   };
 
   if (col.type === "period_grid") {
@@ -122,11 +153,13 @@ function CellEditor({ row, col, cc }: { row: ItemRow; col: ColumnSpec; cc: CellC
     );
   }
 
-  const instant = INSTANT.has(col.type);
+  const type = displayType(col);
+  const instant = INSTANT.has(type);
   return (
     <Stack gap="xs">
       <FieldInput
         col={col}
+        type={type}
         ctx={cc.ctx}
         value={draft}
         autoFocus
@@ -138,7 +171,7 @@ function CellEditor({ row, col, cc }: { row: ItemRow; col: ColumnSpec; cc: CellC
       {!instant && (
         <Group justify="space-between">
           <Text size="xs" c="dimmed">
-            {col.type === "long_text" ? "Ctrl+Enter to save" : "Enter to save, Esc to cancel"}
+            {type === "long_text" ? "Ctrl+Enter to save" : "Enter to save, Esc to cancel"}
           </Text>
           <Button size="compact-sm" onClick={() => save()}>
             Save

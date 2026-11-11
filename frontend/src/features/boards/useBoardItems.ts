@@ -66,13 +66,23 @@ export function useBoardItems(q: ItemsQuery, enabled = true) {
 export function useUpdateField() {
   const qc = useQueryClient();
   return useCallback(
-    async (row: ItemRow, field: string, value: any, expected: any, patch: (r: ItemRow) => ItemRow) => {
+    async (
+      row: ItemRow,
+      field: string,
+      value: any,
+      expected: any,
+      patch: (r: ItemRow) => ItemRow,
+      // Client facts are shared by every item of the client: show the new value on all of them.
+      sharedByClient = false,
+    ) => {
       const snapshots = qc.getQueriesData<ItemRow[]>({ queryKey: ["items"] });
+      const affected = (r: ItemRow) =>
+        r.id === row.id || (sharedByClient && !!row.client && r.client === row.client);
       for (const [key, data] of snapshots) {
         if (data)
           qc.setQueryData(
             key,
-            data.map((r) => (r.id === row.id ? patch(r) : r)),
+            data.map((r) => (affected(r) ? patch(r) : r)),
           );
       }
       try {
@@ -84,6 +94,10 @@ export function useUpdateField() {
           check_expected: true,
         });
         qc.invalidateQueries({ queryKey: ["item", row.id] });
+        if (sharedByClient) {
+          qc.invalidateQueries({ queryKey: ["items"] });
+          qc.invalidateQueries({ queryKey: ["clients"] });
+        }
       } catch (e) {
         for (const [key, data] of snapshots) qc.setQueryData(key, data);
         if (e instanceof ApiError && e.code === "stale_value") {

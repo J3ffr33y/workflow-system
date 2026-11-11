@@ -28,8 +28,12 @@ export function useRealtime(enabled: boolean) {
         qc.invalidateQueries({ queryKey: ["home"] });
       }
       if (all || types.has("comment")) qc.invalidateQueries({ queryKey: ["comments"] });
-      if (all || types.has("client") || types.has("client_entity") || types.has("contact"))
+      if (all || types.has("client") || types.has("client_entity") || types.has("contact")) {
         qc.invalidateQueries({ queryKey: ["clients"] });
+        // Boards show client facts (ABN, State...) in mirror columns.
+        qc.invalidateQueries({ queryKey: ["items"] });
+        qc.invalidateQueries({ queryKey: ["item"] });
+      }
       if (
         all ||
         [...types].some((t) =>

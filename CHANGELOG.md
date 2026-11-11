@@ -4,6 +4,26 @@ All notable changes are recorded here. Versions follow [SemVer](https://semver.o
 
 ## [Unreleased]
 
+### Added
+- Client facts on boards are editable: ABN, State, Industry, portal access, contact name
+  and other mirror columns save to the client (or its primary entity / contact), so the
+  client page and every board show the same value. New command `clients.set_linked_value`.
+- Imports split a cell of merged updates (joined with ", " by the old export) into
+  separate updates (the first one in the cell is taken as the newest). Earlier imports get a preview and a "Split updates" action on the run
+  page (`migration.split_comments`, undoable; removed by rolling back the run).
+
+- Clicking "Last Updated" (or "Created") on a board opens the item's change history:
+  who changed what, including client facts (ABN, State...) changed since the item existed.
+
+### Changed
+- Data migration run page is a step-by-step wizard: map columns, match values, dry-run
+  check, import, with Back / Next and a clear note that nothing is written before import.
+- Mirror columns use the client field's own type (State shows as a dropdown with labels)
+  and fall back to the client's primary entity when an item has none.
+
+### Fixed
+- Picking an option or date with the mouse in a board cell editor did not save.
+
 ## [0.2.0] - 2026-11-02
 
 ### Added
