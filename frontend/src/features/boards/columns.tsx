@@ -1,10 +1,10 @@
 import { ActionIcon, Badge, Group, Text, Tooltip } from "@mantine/core";
-import { IconMessage, IconSubtask, IconArrowsMaximize } from "@tabler/icons-react";
+import { IconHistory, IconMessage, IconSubtask, IconArrowsMaximize } from "@tabler/icons-react";
 import type { ColDef, ValueGetterParams } from "ag-grid-community";
 import type { CustomCellRendererProps } from "ag-grid-react";
 import type { ColumnSpec, ItemRow, ViewConfig } from "../../shared/api/types";
 import { optionOf } from "../../shared/fields/Display";
-import { cellValue, displayType } from "../../shared/fields/format";
+import { cellValue, displayType, fmtDateTime } from "../../shared/fields/format";
 import type { FieldCtx } from "../../shared/workspace";
 import { EditableCell } from "./EditableCell";
 import classes from "./board.module.css";
@@ -86,6 +86,24 @@ function NameCell(props: CustomCellRendererProps<ItemRow> & { onOpen: (id: strin
   );
 }
 
+/** Columns whose click opens the item's change history instead of an editor. */
+export const HISTORY_COLUMNS = new Set(["updated_at", "created_at"]);
+
+function HistoryCell(props: CustomCellRendererProps<ItemRow> & { col: ColumnSpec }) {
+  const row = props.data;
+  if (!row) return null;
+  return (
+    <Tooltip label="Click to see who changed what" withArrow openDelay={400}>
+      <Group gap={6} wrap="nowrap" className={classes.historyCell}>
+        <Text size="sm" truncate>
+          {fmtDateTime(cellValue(row, props.col))}
+        </Text>
+        <IconHistory size={14} className={classes.historyIcon} aria-hidden />
+      </Group>
+    </Tooltip>
+  );
+}
+
 const DEFAULT_WIDTH: Record<string, number> = {
   status: 190,
   name: 280,
@@ -121,7 +139,10 @@ export function buildColumnDefs(
     const base: ColDef<ItemRow> = {
       colId: col.key,
       headerName: col.label,
-      headerTooltip: col.source === "mirror" ? `${col.label} (from the client record)` : col.label,
+      headerTooltip:
+        col.source === "mirror"
+          ? `${col.label}: saved on the client, so every board and the client page show the same value`
+          : col.label,
       hide: hidden,
       pinned,
       width: saved?.width ?? DEFAULT_WIDTH[col.key] ?? DEFAULT_WIDTH[displayType(col)] ?? 150,
@@ -138,6 +159,9 @@ export function buildColumnDefs(
         cellRendererParams: { onOpen: opts.onOpen },
         lockPinned: true,
       };
+    }
+    if (HISTORY_COLUMNS.has(col.key)) {
+      return { ...base, cellRenderer: HistoryCell, cellRendererParams: { col } };
     }
     return {
       ...base,

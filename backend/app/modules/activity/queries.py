@@ -65,18 +65,30 @@ def _command_names(s: Session, entries: list[AuditEntry]) -> dict[uuid.UUID, str
 def entity_activity(
     s: Session, actor: Actor, entity_type: str, entity_id: uuid.UUID, *, limit: int = 200
 ) -> list[dict[str, Any]]:
+    own = or_(
+        and_(AuditEntry.entity_type == entity_type, AuditEntry.entity_id == entity_id),
+        and_(AuditEntry.parent_type == entity_type, AuditEntry.parent_id == entity_id),
+    )
+    scope: Any = own
+    item = s.get(Item, entity_id) if entity_type == "item" else None
+    if item is not None and item.client_id is not None:
+        # Client facts (ABN, State...) show on the item and can be edited from it,
+        # so their changes belong in the item's history too. Only since the item
+        # existed: older client history is on the client page.
+        scope = or_(
+            own,
+            and_(
+                AuditEntry.created_at >= item.created_at,
+                AuditEntry.op == "update",
+                or_(
+                    and_(AuditEntry.entity_type == "client", AuditEntry.entity_id == item.client_id),
+                    and_(AuditEntry.parent_type == "client", AuditEntry.parent_id == item.client_id),
+                ),
+            ),
+        )
     entries = list(
         s.scalars(
-            select(AuditEntry)
-            .where(
-                or_(
-                    and_(AuditEntry.entity_type == entity_type, AuditEntry.entity_id == entity_id),
-                    and_(AuditEntry.parent_type == entity_type, AuditEntry.parent_id == entity_id),
-                ),
-                _visible(actor),
-            )
-            .order_by(AuditEntry.id.desc())
-            .limit(limit)
+            select(AuditEntry).where(scope, _visible(actor)).order_by(AuditEntry.id.desc()).limit(limit)
         )
     )
     # Values on a record's own history are visible to anyone who can see the record.

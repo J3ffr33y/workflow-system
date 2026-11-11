@@ -37,7 +37,16 @@ export function ItemDrawer() {
   const update = useUpdateField();
   const close = () => {
     params.delete("item");
+    params.delete("tab");
     setParams(params);
+  };
+  // The tab is in the URL so the board can open an item straight on its history
+  // (clicking "Last Updated"), like the old system did.
+  const tab = params.get("tab") ?? "details";
+  const setTab = (v: string | null) => {
+    if (!v || v === "details") params.delete("tab");
+    else params.set("tab", v);
+    setParams(params, { replace: true });
   };
   const row = item.data;
   const boardName = row && ctx?.boards.get(row.board_id);
@@ -111,7 +120,8 @@ export function ItemDrawer() {
             </Group>
           </div>
           <Tabs
-            defaultValue="details"
+            value={tab}
+            onChange={setTab}
             keepMounted={false}
             style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
           >
