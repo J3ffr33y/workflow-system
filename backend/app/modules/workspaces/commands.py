@@ -11,6 +11,7 @@ from sqlalchemy import func, select, update
 
 from app.core.errors import NotFound, ValidationFailed
 from app.core.time import utcnow
+from app.modules.automations.dates import DUE_DATE_RULES, clean_quarterly_table
 from app.modules.workspaces.models import (
     Board,
     FieldDefinition,
@@ -95,7 +96,11 @@ def update_workspace(ctx: CommandContext, cmd: UpdateWorkspace) -> None:
     if cmd.item_label is not None:
         ws.item_label = cmd.item_label
     if cmd.settings is not None:
-        ws.settings = {**(ws.settings or {}), **cmd.settings}
+        settings = dict(cmd.settings)
+        if "ato_quarterly_due_dates" in settings:
+            # Stored cleaned and sorted: automations read it on every run.
+            settings["ato_quarterly_due_dates"] = clean_quarterly_table(settings["ato_quarterly_due_dates"])
+        ws.settings = {**(ws.settings or {}), **settings}
 
 
 # --- boards -------------------------------------------------------------------------
@@ -166,7 +171,14 @@ def update_board(ctx: CommandContext, cmd: UpdateBoard) -> None:
     if cmd.clear_period:
         b.period_fiscal_year_id = None
     if cmd.settings is not None:
-        b.settings = {**(b.settings or {}), **cmd.settings}
+        settings = dict(cmd.settings)
+        if "due_date_rules" in settings:
+            rules = settings["due_date_rules"] or []
+            unknown = [r for r in rules if r not in DUE_DATE_RULES]
+            if not isinstance(rules, list) or unknown:
+                raise ValidationFailed(f"unknown due date rule {unknown}", code="bad_due_date_rule")
+            settings["due_date_rules"] = [r for r in DUE_DATE_RULES if r in rules]
+        b.settings = {**(b.settings or {}), **settings}
 
 
 class ReorderBoards(Command):

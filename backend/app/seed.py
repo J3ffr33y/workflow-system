@@ -11,10 +11,16 @@ from typing import Any
 from sqlalchemy import select
 
 from app.core.db import read_session
+from app.modules.automations.dates import (
+    DEFAULT_ATO_QUARTERLY_DUE_DATES,
+    RULE_ATO_QUARTERLY,
+    RULE_SKIP_BAS_MONTHS,
+)
 from app.modules.workspaces.commands import (
     CreateBoard,
     CreateField,
     CreateWorkspace,
+    UpdateBoard,
     UpdateWorkspace,
     UpsertFiscalYear,
     UpsertLookupList,
@@ -175,10 +181,15 @@ def _seed_accounting() -> str:
         },
         "rollover": {"default_target": "same"},
         "required_on_create": ["client", "company", "fiscal_year"],
+        "ato_quarterly_due_dates": DEFAULT_ATO_QUARTERLY_DUE_DATES,
     }))  # fmt: skip
-    for name in ["Financials & Tax Return", "ITR", "BAS", "Payroll", "Payroll & Super", "Bookkeeping",
+    # Quarterly BAS / IAS follow the ATO table; a monthly IAS skips BAS quarter months.
+    due_date_rules = {"BAS": [RULE_ATO_QUARTERLY], "IAS": [RULE_ATO_QUARTERLY, RULE_SKIP_BAS_MONTHS]}
+    for name in ["Financials & Tax Return", "ITR", "BAS", "IAS", "Payroll", "Payroll & Super", "Bookkeeping",
                  "SMSF", "Audit", "Financial Statements"]:  # fmt: skip
-        _run(CreateBoard(workspace_id=ws, name=name))  # type: ignore[arg-type]
+        bid = _run(CreateBoard(workspace_id=ws, name=name))["id"]  # type: ignore[arg-type]
+        if name in due_date_rules:
+            _run(UpdateBoard(board_id=bid, settings={"due_date_rules": due_date_rules[name]}))
     return str(ws)
 
 
