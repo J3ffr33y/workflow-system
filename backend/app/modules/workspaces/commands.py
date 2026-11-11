@@ -21,9 +21,9 @@ from app.modules.workspaces.models import (
     Status,
     Workspace,
 )
-from app.modules.workspaces.schema import is_reserved_key
+from app.modules.workspaces.schema import FieldResolver, is_reserved_key
 from app.platform.commands import Command, CommandContext, handles
-from app.platform.fields.types import field_types
+from app.platform.fields.types import FieldValueError, field_types
 from app.platform.permissions import P_BOARDS_MANAGE, P_SCHEMA_MANAGE, P_SYSTEM_ADMIN
 
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
@@ -285,6 +285,20 @@ def validate_field_config(s: Any, type_: str, config: dict[str, Any]) -> dict[st
         raise ValidationFailed("lookup fields need an existing list", code="bad_config")
     if ft.key == "mirror" and (cfg.get("of") not in ("client", "entity", "contact") or not cfg.get("field")):
         raise ValidationFailed("mirror needs of=client|entity|contact and field", code="bad_config")
+    if cfg.get("default") is not None:
+        # Validated (and normalised) now, so a bad default fails here, not on
+        # every "New item" afterwards.
+        if ft.key == "mirror":
+            raise ValidationFailed("mirror fields cannot have a default", code="bad_config")
+        # Accept a stored value ("top_grants") or what people type ("Top Grants").
+        resolver = FieldResolver(s)
+        try:
+            cfg["default"] = ft.normalize(cfg["default"], cfg, resolver)
+        except FieldValueError as e:
+            try:
+                cfg["default"] = ft.parse_text(cfg["default"], cfg, resolver)
+            except FieldValueError:
+                raise ValidationFailed(f"invalid default: {e}", code="bad_default") from None
     return cfg
 
 

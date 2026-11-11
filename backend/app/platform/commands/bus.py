@@ -78,6 +78,10 @@ class Command(BaseModel):
     # False for internal commands (worker, migration engine): not published
     # as HTTP endpoints.
     exposed: ClassVar[bool] = True
+    # True for commands that must come from a signed-in browser session, never
+    # from an API token (creating tokens, changing passwords): a leaked token
+    # must not be able to mint more tokens or lock the owner out.
+    session_only: ClassVar[bool] = False
 
     def loggable_payload(self) -> dict[str, Any]:
         data = self.model_dump(mode="json")

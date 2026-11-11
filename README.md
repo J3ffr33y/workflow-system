@@ -6,6 +6,7 @@
 - 数据模型：[docs/DATA-MODEL.md](docs/DATA-MODEL.md)
 - 从老系统迁移：[docs/MIGRATION.md](docs/MIGRATION.md)
 - 与老系统的功能对照和后续计划：[docs/ROADMAP.md](docs/ROADMAP.md)
+- 对外接口（API token、Webhook、外部 ID 映射）：[docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)
 - 功能测试表（手工验收，对照老系统要求）：[docs/testing/](docs/testing/)
 - 在自己的 Windows 电脑上用 Docker Desktop 运行（启动、停止、更新、常见错误）：[docs/LOCAL-WINDOWS.md](docs/LOCAL-WINDOWS.md)
 - 部署与运维：[docs/OPERATIONS.md](docs/OPERATIONS.md)

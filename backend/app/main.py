@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from app.api import commands as command_routes
 from app.api.realtime import broadcaster
-from app.api.routes import auth, files, queries, rdti, system
+from app.api.routes import auth, files, integrations, queries, rdti, system
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.logging import configure_logging
@@ -60,6 +60,7 @@ def create_app() -> FastAPI:
     api.include_router(queries.router)
     api.include_router(files.router)
     api.include_router(rdti.router)
+    api.include_router(integrations.router)
     api.include_router(command_routes.build_router())
     app.include_router(api)
     return app

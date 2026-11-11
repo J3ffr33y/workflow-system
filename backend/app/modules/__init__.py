@@ -21,6 +21,7 @@ ENABLED = [
     "system",
     "files",
     "rdti",
+    "integrations",
 ]
 
 # Optional sub-modules a feature module may provide.

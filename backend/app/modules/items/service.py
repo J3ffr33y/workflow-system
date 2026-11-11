@@ -328,6 +328,33 @@ class ItemWriter:
         self._apply_autofill(item, values)
         return item
 
+    def apply_defaults(self, item: Item, values: dict[str, Any]) -> None:
+        """Field defaults (``config.default``) for fields the caller left out.
+
+        Only "New item" uses this. Rollover and migration copy or map values
+        explicitly, and a default there would invent data nobody entered.
+        """
+        for key, col in self.columns.items():
+            default = col.config.get("default")
+            if default is None or key in values or col.source != "data" or not col.editable:
+                continue
+            if (item.data or {}).get(key) is None:
+                self.set(item, key, default)
+
+    def check_required_on_create(self, item: Item) -> None:
+        """``settings.required_on_create``: the New item form enforces it in the
+        browser; this is the server-side check for API-token callers."""
+        required = (self.ws.settings or {}).get("required_on_create", [])
+        missing = {}
+        for key in required:
+            col = self.columns.get(key)
+            if col is None:
+                continue  # field archived or removed since the setting was written
+            if self.current(item, key) in (None, "", []):
+                missing[key] = f"'{col.label}' is required"
+        if missing:
+            raise ValidationFailed("invalid values", code="invalid_item", details={"fields": missing})
+
     def _apply_autofill(self, item: Item, values: dict[str, Any]) -> None:
         """Workspace-configured defaults from the client, e.g.
 

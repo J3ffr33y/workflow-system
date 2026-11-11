@@ -10,7 +10,7 @@
 
 ## 2. 硬规则
 
-1. **写入只走命令总线。** 任何改变数据的操作都是 `platform/commands` 里注册的 Command，经过 `CommandBus.execute`。路由、查询、worker、迁移脚本都不得直接 `session.add / delete / execute(update…)`。查询使用只读连接，误写会被数据库拒绝。唯一例外是平台自身的队列记账（`event_deliveries`、`job_runs`），它们不是业务数据。
+1. **写入只走命令总线。** 任何改变数据的操作都是 `platform/commands` 里注册的 Command，经过 `CommandBus.execute`。路由、查询、worker、迁移脚本都不得直接 `session.add / delete / execute(update…)`。查询使用只读连接，误写会被数据库拒绝。唯一例外是平台自身的队列记账（`event_deliveries`、`job_runs`、`webhook_deliveries`），它们不是业务数据。
 2. **业务逻辑依赖的字段放核心列，其余放 `data` JSONB，并通过字段类型注册表校验。** 不要绕过字段类型直接往 JSONB 里塞值。
 3. **字段 key、状态 key、角色 key 一经创建不可改**，只改 label。迁移、自动化、视图都引用 key。
 4. **时间：** 数据库只存带时区的 UTC（`timestamptz`）；业务"今天"按 `settings.business_timezone` 计算。禁止 naive datetime。日期字段用 `date`。

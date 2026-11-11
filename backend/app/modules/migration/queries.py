@@ -4,12 +4,12 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.errors import NotFound
+from app.core.errors import NotFound, PermissionDenied, ValidationFailed
 from app.modules.migration.mapping import MappingContext, distinct_values
-from app.modules.migration.models import MigrationRow, MigrationRun
+from app.modules.migration.models import ExternalRef, MigrationRow, MigrationRun
 from app.modules.workspaces.models import Board, Workspace
 from app.modules.workspaces.queries import require_workspace
-from app.platform.permissions import P_MIGRATION_RUN, Actor
+from app.platform.permissions import P_ITEMS_READ, P_MIGRATION_RUN, Actor
 
 
 def run_dict(r: MigrationRun) -> dict[str, Any]:
@@ -106,6 +106,46 @@ def run_rows(
             for row in rows
         ],
     }
+
+
+def find_external_refs(
+    s: Session,
+    actor: Actor,
+    *,
+    system: str | None = None,
+    external_type: str | None = None,
+    external_id: str | None = None,
+    entity_type: str | None = None,
+    entity_id: uuid.UUID | None = None,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Look up links either way: "which record is Xero contact 123?" or "what
+    external IDs does this client have?". Returns IDs only, never record data."""
+    if not actor.can(P_ITEMS_READ):
+        raise PermissionDenied("missing permission items.read")
+    if not (external_id or entity_id):
+        raise ValidationFailed("give external_id or entity_id", code="missing_filter")
+    q = select(ExternalRef).order_by(ExternalRef.created_at).limit(limit)
+    for col, val in (
+        (ExternalRef.system, system),
+        (ExternalRef.external_type, external_type),
+        (ExternalRef.external_id, external_id),
+        (ExternalRef.entity_type, entity_type),
+        (ExternalRef.entity_id, entity_id),
+    ):
+        if val is not None:
+            q = q.where(col == val)
+    return [
+        {
+            "id": str(r.id),
+            "system": r.system,
+            "external_type": r.external_type,
+            "external_id": r.external_id,
+            "entity_type": r.entity_type,
+            "entity_id": str(r.entity_id),
+        }
+        for r in s.scalars(q)
+    ]
 
 
 def comment_split_preview(

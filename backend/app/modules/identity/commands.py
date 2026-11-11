@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.core.errors import NotAuthenticated, NotFound, RateLimited, ValidationFailed
 from app.core.security import hash_password, hash_token, new_token, password_problems, verify_password
 from app.core.time import utcnow
-from app.modules.identity.models import AuthSession, LoginAttempt, User
+from app.modules.identity.models import ApiToken, AuthSession, LoginAttempt, User
 from app.modules.workspaces.models import Workspace, WorkspaceMembership
 from app.platform.commands import Command, CommandContext, handles
 from app.platform.permissions import P_USERS_MANAGE, WorkspaceRole
@@ -112,6 +112,7 @@ def logout(ctx: CommandContext, cmd: Logout) -> None:
 class ChangeOwnPassword(Command):
     command_name = "identity.change_own_password"
     scoped = False
+    session_only = True
     secret_fields = frozenset({"current_password", "new_password"})
 
     current_password: str
@@ -233,6 +234,11 @@ def update_user(ctx: CommandContext, cmd: UpdateUser) -> None:
                 .where(AuthSession.user_id == user.id, AuthSession.revoked_at.is_(None))
                 .values(revoked_at=utcnow())
             )
+            # Tokens too: reactivating someone must not silently revive old tokens.
+            for t in s.scalars(
+                select(ApiToken).where(ApiToken.user_id == user.id, ApiToken.revoked_at.is_(None))
+            ):
+                t.revoked_at = utcnow()
     if cmd.is_superadmin is not None:
         if not cmd.is_superadmin and cmd.user_id == ctx.actor.user_id:
             raise ValidationFailed("you cannot remove your own admin rights")
@@ -249,6 +255,7 @@ class SetUserPassword(Command):
     command_name = "identity.set_user_password"
     permission = P_USERS_MANAGE
     scoped = False
+    session_only = True
     secret_fields = frozenset({"password"})
 
     user_id: uuid.UUID
@@ -283,6 +290,61 @@ def purge_expired_sessions(ctx: CommandContext, cmd: PurgeExpiredSessions) -> in
     r1 = ctx.session.execute(delete(AuthSession).where(AuthSession.expires_at < utcnow()))
     ctx.session.execute(delete(LoginAttempt).where(LoginAttempt.created_at < cutoff))
     return int(r1.rowcount or 0)  # type: ignore[attr-defined]
+
+
+# --- API tokens -----------------------------------------------------------------
+API_TOKEN_PREFIX = "flow_pat_"  # noqa: S105 - a public marker, not a secret
+
+
+class CreateApiToken(Command):
+    """Create a personal API token. The token is returned once and never again."""
+
+    command_name = "identity.create_api_token"
+    scoped = False
+    session_only = True
+    log_result = False
+
+    name: str = Field(min_length=1, max_length=120)
+    # None: never expires. Long-lived tokens are allowed for server-to-server
+    # integrations, but people should prefer an expiry.
+    expires_in_days: int | None = Field(default=90, ge=1, le=730)
+    read_only: bool = False
+
+
+@handles(CreateApiToken)
+def create_api_token(ctx: CommandContext, cmd: CreateApiToken) -> dict[str, Any]:
+    if ctx.actor.user_id is None:
+        raise ValidationFailed("only people can own API tokens", code="not_a_user")
+    token = API_TOKEN_PREFIX + new_token()
+    row = ApiToken(
+        user_id=ctx.actor.user_id,
+        name=cmd.name.strip(),
+        prefix=token[: len(API_TOKEN_PREFIX) + 6],
+        token_hash=hash_token(token),
+        read_only=cmd.read_only,
+        expires_at=utcnow() + timedelta(days=cmd.expires_in_days) if cmd.expires_in_days else None,
+    )
+    ctx.session.add(row)
+    ctx.session.flush()
+    return {"id": str(row.id), "token": token, "prefix": row.prefix}
+
+
+class RevokeApiToken(Command):
+    """Revoke one of your own tokens (superadmins: anyone's)."""
+
+    command_name = "identity.revoke_api_token"
+    scoped = False
+
+    token_id: uuid.UUID
+
+
+@handles(RevokeApiToken)
+def revoke_api_token(ctx: CommandContext, cmd: RevokeApiToken) -> None:
+    row = ctx.session.get(ApiToken, cmd.token_id)
+    if row is None or (row.user_id != ctx.actor.user_id and not ctx.actor.can(P_USERS_MANAGE)):
+        raise NotFound("token not found")
+    if row.revoked_at is None:
+        row.revoked_at = utcnow()
 
 
 # --- helpers ------------------------------------------------------------------

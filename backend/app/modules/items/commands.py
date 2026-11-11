@@ -12,7 +12,7 @@ from app.modules.items.models import Item, ItemMember
 from app.modules.items.service import _MISSING, ItemWriter, add_years, load_item, next_fiscal_year
 from app.modules.tasks.models import Task
 from app.modules.workspaces.models import Board, FiscalYear, Workspace
-from app.platform.commands import Command, CommandContext, handles
+from app.platform.commands import Command, CommandContext, Origin, handles
 from app.platform.permissions import (
     P_ITEMS_ARCHIVE,
     P_ITEMS_CREATE,
@@ -67,6 +67,10 @@ def create_item(ctx: CommandContext, cmd: CreateItem) -> dict[str, str]:
     ctx.authorize(P_ITEMS_CREATE, board.workspace_id)
     writer = ItemWriter(ctx, _workspace(ctx, board.workspace_id))
     item = writer.create(board, cmd.values)
+    writer.apply_defaults(item, cmd.values)
+    if ctx.origin == Origin.API:
+        # The New item form enforces this for people; API callers have no form.
+        writer.check_required_on_create(item)
     ctx.session.flush()
     return {"id": str(item.id)}
 
