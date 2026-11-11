@@ -32,7 +32,7 @@ import type { FilterGroup, ItemRow, SavedView, ViewConfig } from "../../shared/a
 import { useWorkspace } from "../../shared/workspace";
 import { BoardSettingsModal } from "../settings/BoardSettingsModal";
 import { BulkBar } from "./BulkBar";
-import { buildColumnDefs, readGridState } from "./columns";
+import { HISTORY_COLUMNS, buildColumnDefs, readGridState } from "./columns";
 import { type CellContext } from "./EditableCell";
 import { editStore } from "./editStore";
 import { FilterBuilder } from "./FilterBuilder";
@@ -112,8 +112,10 @@ export function BoardPage() {
   });
 
   const openItem = useCallback(
-    (id: string) => {
+    (id: string, tab?: string) => {
       params.set("item", id);
+      if (tab) params.set("tab", tab);
+      else params.delete("tab");
       setParams(params);
     },
     [params, setParams],
@@ -148,6 +150,7 @@ export function BoardPage() {
   const onCellClicked = (e: CellClickedEvent<ItemRow>) => {
     const key = e.column.getColId();
     if (!e.data || key === "name" || key === "status") return;
+    if (HISTORY_COLUMNS.has(key)) return openItem(e.data.id, "activity");
     editStore.set({ rowId: e.data.id, colKey: key });
   };
   const onCellKeyDown = (e: CellKeyDownEvent<ItemRow>) => {
@@ -155,6 +158,7 @@ export function BoardPage() {
     if (ev?.key === "Enter" && e.data && !editStore.get()) {
       const key = e.column.getColId();
       if (key === "name") openItem(e.data.id);
+      else if (HISTORY_COLUMNS.has(key)) openItem(e.data.id, "activity");
       else editStore.set({ rowId: e.data.id, colKey: key });
     }
   };

@@ -197,7 +197,8 @@ class MappingContext:
     def _targets(self) -> dict[str, Target]:
         t: dict[str, Target] = {}
         for c in self.columns.values():
-            if not c.editable or c.key == "board":
+            # Mirrors are imported through their client.* / entity.* / contact.* targets.
+            if not c.editable or c.key == "board" or c.source == "mirror":
                 continue
             type_ = {
                 "client": "text",

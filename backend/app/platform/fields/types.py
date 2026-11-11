@@ -593,10 +593,12 @@ class PeriodGridType(FieldType):
 
 
 class MirrorType(FieldType):
-    """Read-only view of a field on a related record (client, entity).
+    """A field of a related record (client, entity, primary contact) shown on items.
 
     Keeps one source of truth: e.g. portal access lives on the client and is
     *shown* on every item of that client, instead of being copied around.
+    Values never live on the item, so this type never normalises one; board
+    edits are written to the record itself (see ItemWriter._set_mirror).
     """
 
     key = "mirror"
@@ -605,7 +607,7 @@ class MirrorType(FieldType):
     editable = False
 
     def normalize(self, value: Any, config: dict[str, Any], r: Resolver | None = None) -> Any:
-        raise FieldValueError("mirror fields are read-only", code="read_only")
+        raise FieldValueError("mirror values are stored on the linked record", code="read_only")
 
 
 @dataclass

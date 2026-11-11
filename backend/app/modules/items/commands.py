@@ -448,7 +448,8 @@ def rollover_items(ctx: CommandContext, cmd: RolloverItems) -> dict[str, Any]:
             continue
         values: dict[str, Any] = {"client": str(src.client_id) if src.client_id else None}
         for key, col in writer.columns.items():
-            if key in fixed or not col.editable:
+            # Mirror values live on the client, which the new item shares anyway.
+            if key in fixed or not col.editable or col.source == "mirror":
                 continue
             act = cmd.field_actions.get(key) or FieldAction(action=col.rollover)  # type: ignore[arg-type]
             current = writer.current(src, key)
